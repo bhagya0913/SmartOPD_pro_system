@@ -87,6 +87,7 @@ function RetrievePatient({ onOpen }) {
     const [searchTerm, setSearchTerm] = useState('');
 
     const handleSearch = async () => {
+        console.log("Sending search request for:", searchTerm); // Check your browser console!
         const response = await fetch(`http://127.0.0.1:5001/api/doctor/search-patient?term=${searchTerm}`);
         const data = await response.json();
         if (data.success) {
@@ -124,15 +125,46 @@ function PatientPortal({ patient, user }) {
 
             {/* Sub-tabs for Medical Actions */}
             <div className="portal-tabs">
-                <button className={activeSubTab === 'history' ? 'active' : ''} onClick={() => setActiveSubTab('history')}>Medical History</button>
-                <button className={activeSubTab === 'diagnosis' ? 'active' : ''} onClick={() => setActiveSubTab('diagnosis')}>Diagnosis & Prescription</button>
-                <button className={activeSubTab === 'lab' ? 'active' : ''} onClick={() => setActiveSubTab('lab')}>Lab Requests</button>
+                <button 
+                    className={activeSubTab === 'history' ? 'active' : ''} 
+                    onClick={() => setActiveSubTab('history')}
+                >
+                    Medical History
+                </button>
+                <button 
+                    className={activeSubTab === 'diagnosis' ? 'active' : ''} 
+                    onClick={() => setActiveSubTab('diagnosis')}
+                >
+                    Diagnosis & Prescription
+                </button>
+                <button 
+                    className={activeSubTab === 'lab' ? 'active' : ''} 
+                    onClick={() => setActiveSubTab('lab')}
+                >
+                    Lab Requests
+                </button>
             </div>
 
             <div className="portal-content" style={{ marginTop: '20px' }}>
-                {activeSubTab === 'history' && <MedicalHistory patientId={patient.id} />}
-                {activeSubTab === 'diagnosis' && <CreateConsultation patient={patient} user={user} onBack={() => setActiveSubTab('history')} />}
-                {activeSubTab === 'lab' && <div className="card"><h3>Lab Orders</h3><p>Order Blood Tests or Scans...</p></div>}
+                {activeSubTab === 'history' && (
+                    <MedicalHistory patientId={patient.id} />
+                )}
+                
+                {activeSubTab === 'diagnosis' && (
+                    <CreateConsultation 
+                        patient={patient} 
+                        user={user} 
+                        onBack={() => setActiveSubTab('history')} 
+                    />
+                )}
+
+                {activeSubTab === 'lab' && (
+                    <LabRequestForm 
+                        patient={patient} 
+                        user={user} 
+                        onBack={() => setActiveSubTab('history')} 
+                    />
+                )}
             </div>
         </div>
     );
@@ -232,18 +264,25 @@ function CreateConsultation({ patient, user, onBack }) {
 
     const handleSaveSession = async () => {
         if (!findings.trim()) return alert("Please enter clinical findings.");
-        
+        console.log("Current User Object:", user);
+        const doctorId = user?.staff_id || user?.id;
+        // DEBUG: Ensure doctor_id isn't undefined
+        console.log("Saving with Doctor ID:", user?.staff_id);
+
+        if (!doctorId) {
+        return alert("Error: Doctor ID not found. Please re-login.");
+    }
+
         const payload = {
-            patient_id: patient.id,
-            doctor_id: user.staff_id || user.id,
-            findings: findings,
-            // We split the nameAndDose back or send it as one string depending on your DB
-            medicines: medsList.filter(m => m.nameAndDose.trim() !== "").map(m => ({
-                name: m.nameAndDose, 
-                dosage: '', // Left empty as it's now combined in 'name'
-                note: m.note
-            }))
-        };
+        patient_id: patient.id,
+        doctor_id: doctorId,
+        appointment_id: patient.appointment_id || null, // Send null if you don't have it yet
+        findings: findings,
+        medicines: medsList.filter(m => m.nameAndDose.trim() !== "").map(m => ({
+            name: m.nameAndDose, 
+            note: m.note
+        }))
+    }
 
         try {
             const response = await fetch('http://127.0.0.1:5001/api/doctor/save-consultation', {
@@ -255,9 +294,14 @@ function CreateConsultation({ patient, user, onBack }) {
                 alert("✅ Consultation Saved!");
                 setFindings('');
                 setMedsList([{ nameAndDose: '', note: '' }]);
+                onBack();
+            }
+                else {
+                alert("❌ Server error: " + result.error);
             }
         } catch (err) { alert("❌ Save Failed"); }
     };
+    
 
     if (activeTab === 'referral') return <ReferralForm patient={patient} onBack={() => setActiveTab('consultation')} />;
     if (activeTab === 'lab') return <LabRequestForm patient={patient} onBack={() => setActiveTab('consultation')} />;
@@ -335,6 +379,16 @@ function CreateConsultation({ patient, user, onBack }) {
 
 
 function ReferralForm({ patient, onBack }) {
+
+    const [reason, setReason] = useState('');
+    const [dept, setDept] = useState('Cardiology');
+
+    const handleReferral = () => {
+        alert(`Referral generated for ${patient.name} to ${dept}`);
+        // Add your fetch call to /api/doctor/save-referral here if you have one
+        onBack();
+    };
+
     return (
         <div className="card figma-modal-style">
             <div className="section-header">
@@ -353,16 +407,16 @@ function ReferralForm({ patient, onBack }) {
 
             <div className="form-group" style={{ marginTop: '20px' }}>
                 <label>Clinical Reason for Referral</label>
-                <textarea
-                    className="figma-textarea"
-                    rows={8}
-                    placeholder="Provide detailed clinical history and reason for specialized consultation..."
-                />
+                    <textarea 
+                className="figma-textarea" 
+                value={reason} 
+                onChange={(e) => setReason(e.target.value)} 
+            />
             </div>
 
             <div className="action-footer">
                 <button className="referral-btn" onClick={onBack}>Cancel</button>
-                <button className="primary-btn-large">Generate & Print Referral</button>
+                <button className="primary-btn-large" onClick={handleReferral}>Generate & Print Referral</button>
             </div>
         </div>
     );
@@ -389,10 +443,17 @@ function DoctorHome() {
 }
 
 /* --- SUB-COMPONENT: LAB REQUEST FORM --- */
-function LabRequestForm({ patient, onBack }) {
+function LabRequestForm({ patient, user, onBack }) { // Added 'user' to props
     const [selectedTests, setSelectedTests] = useState([]);
     const [instructions, setInstructions] = useState('');
-    const commonTests = ["Full Blood Count (FBC)", "Lipid Profile", "FBS / HbA1c", "Liver Function Test", "Urine Full Report", "Serum Creatinine"];
+    const commonTests = [
+        "Full Blood Count (FBC)", 
+        "Lipid Profile", 
+        "FBS / HbA1c", 
+        "Liver Function Test", 
+        "Urine Full Report", 
+        "Serum Creatinine"
+    ];
 
     const toggleTest = (test) => {
         setSelectedTests(prev =>
@@ -401,25 +462,37 @@ function LabRequestForm({ patient, onBack }) {
     };
 
     const handleSubmitLab = async () => {
-        if (selectedTests.length === 0) return alert("Please select at least one test.");
+        if (selectedTests.length === 0) {
+            return alert("Please select at least one test.");
+        }
+
+        // Match these keys EXACTLY to your backend: 
+        // patientId, doctorId, testName, priority
+        const payload = {
+            patientId: patient.id, 
+            doctorId: user?.staff_id || user?.id, 
+            testName: selectedTests.join(', ') + (instructions ? ` (Note: ${instructions})` : ''), 
+            priority: 'Normal' 
+        };
 
         try {
             const res = await fetch('http://127.0.0.1:5001/api/doctor/request-lab', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    patient_id: patient.id,
-                    tests: selectedTests.join(', '),
-                    notes: instructions
-                })
+                body: JSON.stringify(payload)
             });
 
-            if (res.ok) {
-                alert("Lab Request Sent Successfully!");
-                onBack(); // Go back to consultation
+            const data = await res.json();
+            
+            if (data.success) {
+                alert("✅ Lab Request Sent Successfully!");
+                onBack(); 
+            } else {
+                alert("❌ Error: " + (data.error || "Unknown server error"));
             }
         } catch (err) {
             console.error("Lab Request Error:", err);
+            alert("❌ Network Error: Could not connect to server.");
         }
     };
 
@@ -432,7 +505,11 @@ function LabRequestForm({ patient, onBack }) {
 
             <div className="lab-grid">
                 {commonTests.map(test => (
-                    <label key={test} className={`lab-checkbox-card ${selectedTests.includes(test) ? 'active-test' : ''}`}>
+                    <label 
+                        key={test} 
+                        className={`lab-checkbox-card ${selectedTests.includes(test) ? 'active-test' : ''}`}
+                        style={{ display: 'flex', gap: '10px', padding: '10px', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '5px', cursor: 'pointer' }}
+                    >
                         <input
                             type="checkbox"
                             checked={selectedTests.includes(test)}
@@ -451,13 +528,17 @@ function LabRequestForm({ patient, onBack }) {
                     placeholder="Add any other specific tests or instructions..."
                     value={instructions}
                     onChange={(e) => setInstructions(e.target.value)}
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
             </div>
 
-            <div className="action-footer">
-                <button className="referral-btn" onClick={onBack}>Cancel</button>
-                <button className="primary-btn-large" onClick={handleSubmitLab}>Submit Lab Request</button>
+            <div className="action-footer" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                <button className="referral-btn" onClick={onBack} style={{ flex: 1 }}>Cancel</button>
+                <button className="primary-btn-large" onClick={handleSubmitLab} style={{ flex: 2 }}>
+                    Submit Lab Request
+                </button>
             </div>
         </div>
     );
 }
+    

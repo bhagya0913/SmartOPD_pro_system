@@ -1,9 +1,26 @@
 /* Layout Containers */
+/*  */
 .dashboard-container {
+    min-height: 100vh;
+    width: 100%;
+    /* Replace the URL below with your actual image path or URL */
+    background-image: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), 
+                      url('../background.jpeg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* [cite: 189] */
+.main-content {
+    background: rgba(255, 255, 255, 0.7); /* Adjust 0.7 to change transparency */
+    backdrop-filter: blur(5px); /* Adds a modern frosted-glass effect */
+    border-radius: 15px;
+    margin: 20px;
+    padding: 20px;
 }
 
 .top-nav {

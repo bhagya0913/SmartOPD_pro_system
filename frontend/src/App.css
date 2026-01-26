@@ -112,3 +112,20 @@ input:focus {
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
 }
+
+/* Custom CSS for the SmartOPD Look */
+.bg-gray-50 { background-color: #f9fafb; }
+.bg-white { background-color: #ffffff; }
+.shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+.rounded-xl { border-radius: 0.75rem; }
+.border-gray-200 { border-color: #e5e7eb; }
+
+/* Grid Layouts */
+.grid { display: grid; }
+.md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gap-6 { gap: 1.5rem; }
+
+/* Dashboard Typography */
+.text-gray-900 { color: #111827; }
+.text-blue-600 { color: #2563eb; }
+.font-bold { font-weight: 700; }

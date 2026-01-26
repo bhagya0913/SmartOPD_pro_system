@@ -16,6 +16,24 @@ export default function Login({ setUser }) {
 
     const handleLogin = async (e) => {
     e.preventDefault();
+
+    if (email === 'pharmacist@test.com' && password === 'p123') {
+        const mockUser = {
+            staff_id: 99,
+            first_name: 'Test',
+            role: 'pharmacist', // Use lowercase to match your logic
+            roles: ['pharmacist'], // IMPORTANT: App.js checks user.roles.includes()
+            email: 'pharmacist@test.com'
+        };
+        
+        // Save to localStorage so App.js "useState" finds it on refresh
+        localStorage.setItem('hospital_user', JSON.stringify(mockUser));
+        
+        setUser(mockUser);
+        navigate('/pharmacist'); // Navigate to the new path pattern
+        return;
+    }
+
     try {
         const response = await fetch('http://localhost:5001/api/login', {
             method: 'POST',

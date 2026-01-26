@@ -340,68 +340,67 @@ app.get('/api/family-members', (req, res) => {
 });
 
 app.post('/api/book-appointment', (req, res) => {
-    // 1. Destructure data
     const { patientId, date, timeSlot } = req.body;
 
-    // 2. Immediate validation check
-    if (!patientId || !date || !timeSlot) {
-        return res.status(400).json({ success: false, message: "Missing required fields (ID, Date, or Time)." });
-    }
+    // --- STEP 0: ADMIN OVERRIDE CHECK ---
+    // Check if the OPD is closed or if this specific time is disabled
+    const adminCheck = `
+        SELECT status FROM clinic_schedule 
+        WHERE schedule_date = ? 
+        AND (time_slot = ? OR time_slot = 'ALL_DAY')
+    `;
 
-    console.log(`Booking attempt - Patient: ${patientId}, Date: ${date}, Slot: ${timeSlot}`);
-
-    // --- STEP 1: PREVENT DOUBLE BOOKING ---
-    // If your DB still errors here, change 'appointment_day' to your actual column name
-    const doubleBookCheck = `SELECT * FROM appointment WHERE patient_id = ? AND appointment_day = ? AND status != 'cancelled'`;
-
-    db.query(doubleBookCheck, [patientId, date], (err, results) => {
-        if (err) {
-            console.error("Step 1 (Double Booking) Error:", err.message);
-            return res.status(500).json({ success: false, message: "Database Check Error: " + err.message });
+    db.query(adminCheck, [date, timeSlot], (err, adminResults) => {
+        if (err) console.error("Admin Check Error:", err); // Log but don't crash if table doesn't exist yet
+        
+        if (adminResults && adminResults.length > 0 && adminResults[0].status === 'closed') {
+            return res.json({ success: false, message: "The OPD is closed for the selected time. Please choose another date." });
         }
 
-        if (results.length > 0) {
-            return res.json({ success: false, message: "You already have an appointment on this date." });
-        }
-
-        // --- STEP 2: CAPACITY & TOKEN LOGIC ---
-        // Note: I am using 'time_slot'. Ensure you ran the ALTER TABLE command in MySQL!
-        const capacityQuery = `
-            SELECT COUNT(*) as count 
-            FROM appointment 
-            WHERE appointment_day = ? AND time_slot = ? AND status != 'cancelled'
+        // --- STEP 1: PREVENT DOUBLE BOOKING FOR THIS SPECIFIC ID ---
+        const doubleBookCheck = `
+            SELECT * FROM appointment 
+            WHERE patient_id = ? 
+            AND appointment_day = ? 
+            AND status != 'cancelled'
         `;
 
-        db.query(capacityQuery, [date, timeSlot], (err, results) => {
-            if (err) {
-                console.error("Step 2 (Capacity) Error:", err.message);
-                return res.status(500).json({ success: false, message: "Capacity Check Error: " + err.message });
+        db.query(doubleBookCheck, [patientId, date], (err, results) => {
+            if (err) return res.status(500).json({ success: false, message: "DB Error 1: " + err.sqlMessage });
+
+            // Here we check if the SAME person already has an appointment ON THIS DAY
+            // If you want them to book multiple slots in one day, add "AND time_slot = ?" to the query above
+            if (results.length > 0) {
+                return res.json({ success: false, message: "This patient already has an appointment booked for today." });
             }
 
-            const bookedCount = results[0].count;
-            if (bookedCount >= 6) {
-                return res.json({ success: false, message: "This time slot is full (Max 6 patients)." });
-            }
-
-            const newTokenNo = bookedCount + 1;
-
-            // --- STEP 3: INSERT APPOINTMENT ---
-            const insertQuery = `
-                INSERT INTO appointment (patient_id, appointment_day, time_slot, token_no, status) 
-                VALUES (?, ?, ?, ?, 'booked')
+            // --- STEP 2: CAPACITY CHECK (The 6-Patient Limit) ---
+            const capacityQuery = `
+                SELECT COUNT(*) as count 
+                FROM appointment 
+                WHERE appointment_day = ? AND time_slot = ? AND status != 'cancelled'
             `;
 
-            db.query(insertQuery, [patientId, date, timeSlot, newTokenNo], (err, result) => {
-                if (err) {
-                    console.error("Step 3 (Insert) Error:", err.message);
-                    return res.status(500).json({ success: false, message: "Booking failed: " + err.message });
+            db.query(capacityQuery, [date, timeSlot], (err, results) => {
+                if (err) return res.status(500).json({ success: false, message: "Capacity Query Error" });
+
+                const bookedCount = results[0].count;
+                if (bookedCount >= 6) {
+                    return res.json({ success: false, message: "This time slot is full (Max 6 patients per hour)." });
                 }
 
-                res.json({
-                    success: true,
-                    tokenNo: newTokenNo,
-                    date: date,
-                    timeSlot: timeSlot
+                const newTokenNo = bookedCount + 1;
+
+                // --- STEP 3: FINAL INSERT ---
+                const insertQuery = `
+                    INSERT INTO appointment (patient_id, appointment_day, time_slot, token_no, status) 
+                    VALUES (?, ?, ?, ?, 'booked')
+                `;
+
+                db.query(insertQuery, [patientId, date, timeSlot, newTokenNo], (err, result) => {
+                    if (err) return res.status(500).json({ success: false, message: "Insert Error: " + err.sqlMessage });
+
+                    res.json({ success: true, tokenNo: newTokenNo, message: "Appointment confirmed!" });
                 });
             });
         });
@@ -624,12 +623,35 @@ app.post('/api/admin/settings', (req, res) => {
 
 // 1. Unified Search (Handles NIC or ID)                                                                                                                                    
 app.get('/api/doctor/search-patient', (req, res) => {
-    const term = req.query.term;
-    const sql = "SELECT * FROM patient WHERE nic = ? OR patient_id = ?";
-    db.query(sql, [term, term], (err, results) => {
-        if (err) return res.status(500).json({ success: false });
-        if (results.length > 0) res.json({ success: true, patient: results[0] });
-        else res.json({ success: false });
+    const term = req.query.term ? req.query.term.trim() : '';
+
+    if (!term) {
+        return res.status(400).json({ success: false, message: "No search term provided" });
+    }
+
+    // We check NIC, the Auto-Increment ID, and the Barcode
+    const sql = `
+        SELECT * FROM patient 
+        WHERE nic = ? 
+        OR patient_id = ? 
+        OR barcode = ?
+    `;
+
+    // Passing 'term' 3 times to fill the 3 '?' in the query
+    db.query(sql, [term, term, term], (err, results) => {
+        if (err) {
+            console.error("Database Error:", err);
+            return res.status(500).json({ success: false, message: "Database error occurred" });
+        }
+
+        if (results.length > 0) {
+            // Patient found!
+            res.json({ success: true, patient: results[0] });
+        } else {
+            // Log this to your console to see what failed
+            console.log(`Search failed for term: "${term}"`);
+            res.json({ success: false, message: "Patient not found in system" });
+        }
     });
 });
 
@@ -664,33 +686,41 @@ app.get('/api/doctor/patient-history/:patientId', (req, res) => {
 
 // 3. Save Consultation
 app.post('/api/doctor/save-consultation', (req, res) => {
-    const { patient_id, doctor_id, findings, medicines } = req.body;
+    const { patient_id, doctor_id, findings, medicines, appointment_id } = req.body;
 
-    // 1. Insert into treatment_record
-    const treatmentSql = "INSERT INTO treatment_record (patient_id, treatment_details, created_by, consultation_day) VALUES (?, ?, ?, NOW())";
+    // Use a placeholder if appointment_id is missing to avoid FK errors
+    // Or ensure your table allows NULL for appointment_id
+    const apptId = appointment_id || null; 
 
-    db.query(treatmentSql, [patient_id, findings, doctor_id], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+    // Generate a unique string for the treatment_id column
+    const treatment_uuid = `TRMT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-        // 2. If there are medicines, insert them into the prescription table
+    const treatmentSql = `
+        INSERT INTO treatment_record 
+        (appointment_id, treatment_details, created_by, consultation_day, priority) 
+        VALUES (?, ?, ?, CURDATE(), 'normal')
+    `;
+    db.query(treatmentSql, [treatment_uuid, appointment_id, findings, doctor_id], (err, result) =>{
+        if (err) {
+            console.error("DATABASE ERROR:", err.sqlMessage); // Look at your terminal!
+            return res.status(500).json({ success: false, error: err.message });
+        }
+
         if (medicines && medicines.length > 0) {
-            const prescriptionSql = "INSERT INTO prescription (patient_id, details, date_issued, issued_by) VALUES ?";
-
-            // Format medicines into a single string or multiple rows
-            // Here we format them as: "Panadol (1x3) - After food"
+            const prescriptionSql = "INSERT INTO prescription (appointment_id, issued_by, date_issued, details) VALUES ?";
             const values = medicines.map(m => [
-                patient_id,
-                `${m.name} -- ${m.note}`,
+                apptId,
+                doctor_id,
                 new Date(),
-                doctor_id
+                `${m.name} -- ${m.note}`
             ]);
 
             db.query(prescriptionSql, [values], (err) => {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json({ message: "Success! Record and Prescription saved." });
+                if (err) return res.status(500).json({ success: false, error: err.message });
+                res.json({ success: true, message: "Saved with Prescriptions" });
             });
         } else {
-            res.json({ message: "Success! Record saved (no prescriptions)." });
+            res.json({ success: true, message: "Saved findings only" });
         }
     });
 });
@@ -705,11 +735,50 @@ app.post('/api/doctor/request-lab', (req, res) => {
     });
 });
 
+app.post('/api/doctor/create-referral', (req, res) => {
+    const { appointment_id, doctor_id, reason, specialist_id } = req.body;
+    const sql = "INSERT INTO referral (appointment_id, issued_by, referral_date, reason, specialist_id) VALUES (?, ?, NOW(), ?, ?)";
+    
+    db.query(sql, [appointment_id, doctor_id, reason, specialist_id], (err, result) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        res.json({ success: true });
+    });
+});
+
 // Updated Listen
 // const PORT = process.env.PORT || 5001;
 // app.listen(PORT, () => {
 // console.log(`Server running on port ${PORT}`);
 //});
+
+// 1. Get Pending Prescriptions for a patient
+app.get('/api/pharmacist/pending-prescriptions', (req, res) => {
+    const term = req.query.term;
+    const sql = `
+        SELECT p.*, pt.first_name as patient_name, pt.patient_id, s.first_name as doctor_name
+        FROM prescription p
+        JOIN patient pt ON p.patient_id = pt.patient_id OR pt.nic = ?
+        JOIN staff s ON p.issued_by = s.staff_id
+        LEFT JOIN prescription_fulfillment pf ON p.prescription_id = pf.prescription_id
+        WHERE pf.prescription_id IS NULL AND (pt.nic = ? OR pt.patient_id = ?)
+    `;
+
+    db.query(sql, [term, term, term], (err, results) => {
+        if (err) return res.status(500).json(err);
+        res.json(results);
+    });
+});
+
+// 2. Fulfill a Prescription
+app.post('/api/pharmacist/fulfill', (req, res) => {
+    const { prescription_id, pharmacist_id } = req.body;
+    const sql = "INSERT INTO prescription_fulfillment (prescription_id, pharmacist_id, fulfilled_at, notes) VALUES (?, ?, NOW(), 'Dispensed at Pharmacy')";
+
+    db.query(sql, [prescription_id, pharmacist_id], (err, result) => {
+        if (err) return res.status(500).json(err);
+        res.json({ success: true });
+    });
+});
 
 const PORT = 5001;
 app.listen(PORT, '0.0.0.0', () => { // Adding '0.0.0.0' forces it to listen on all local paths

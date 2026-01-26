@@ -105,7 +105,9 @@ function FamilyRegistration({ primaryUser, onComplete }) {
 
 function FamilySection({ user, setUser }) {
     const [members, setMembers] = useState([]);
+    const navigate = useNavigate();
 
+    // 1. Define the fetch function
     const fetchMembers = async () => {
         const emailToFetch = user?.email || user?.username;
         if (!emailToFetch) return;
@@ -113,18 +115,27 @@ function FamilySection({ user, setUser }) {
             const res = await fetch(`http://127.0.0.1:5001/api/family-members?email=${emailToFetch}`);
             const data = await res.json();
             if (data.success) setMembers(data.members);
-        } catch (err) { console.error("Fetch error:", err); }
-    };
+        } catch (err) { 
+            console.error("Fetch error:", err); 
+        }
+    }; // <--- THIS BRACKET CLOSES fetchMembers
 
-    useEffect(() => { fetchMembers(); }, [user?.email, user?.username]);
+    // 2. This must be OUTSIDE fetchMembers
+    useEffect(() => { 
+        fetchMembers(); 
+    }, [user?.email, user?.username]);
 
+    // 3. This must be OUTSIDE fetchMembers
     const switchAccount = (m) => {
         const updatedUser = {
             ...user,
-            id: m.patient_id,
+            patientId: m.patient_id,
             name: m.first_name,
             surname: m.surname,
-            patCode: m.barcode
+            patCode: m.barcode,
+            blood_group: m.blood_group,
+            allergies: m.allergies,
+            nic: m.nic
         };
         setUser(updatedUser);
         localStorage.setItem('hospital_user', JSON.stringify(updatedUser));
@@ -137,12 +148,39 @@ function FamilySection({ user, setUser }) {
             <div className="stats-grid">
                 {members.map((m) => (
                     <div key={m.patient_id} className={`stat-card ${m.barcode === user.patCode ? 'active-profile' : ''}`}
-                        style={{ border: m.barcode === user.patCode ? '2px solid #2563eb' : '1px solid #e2e8f0' }}>
-                        <h4>{m.first_name} {m.surname}</h4>
-                        <p>{m.barcode}</p>
-                        <button className="submit-btn" onClick={() => switchAccount(m)} disabled={m.barcode === user.patCode}>
-                            {m.barcode === user.patCode ? 'Active' : 'Switch'}
-                        </button>
+                        style={{ border: m.barcode === user.patCode ? '2px solid #2563eb' : '1px solid #e2e8f0', padding: '15px', borderRadius: '12px' }}>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h4>{m.first_name} {m.surname}</h4>
+                                <p style={{ fontSize: '0.8rem', color: '#64748b' }}>{m.barcode}</p>
+                            </div>
+                            {m.barcode === user.patCode && 
+                                <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '10px', fontSize: '0.7rem' }}>ACTIVE</span>
+                            }
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '15px' }}>
+                            <button 
+                                className="submit-btn" 
+                                onClick={() => switchAccount(m)} 
+                                disabled={m.barcode === user.patCode}
+                                style={{ background: m.barcode === user.patCode ? '#94a3b8' : '#2563eb' }}
+                            >
+                                {m.barcode === user.patCode ? 'Currently Logged In' : `Login as ${m.first_name}`}
+                            </button>
+
+                            <button 
+                                className="submit-btn" 
+                                style={{ background: '#059669', border: 'none' }} 
+                                onClick={() => {
+                                    switchAccount(m);
+                                    navigate('/patient/appointments'); 
+                                }}
+                            >
+                                Book Appointment for {m.first_name}
+                            </button>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -150,7 +188,6 @@ function FamilySection({ user, setUser }) {
         </div>
     );
 }
-
 
 
 /* --- 2. CORE FUNCTIONAL COMPONENTS --- */
@@ -210,12 +247,48 @@ function DashboardHome({ user, myAppointments }) {
     );
 }
 
+/* --- APPOINTMENTS COMPONENT --- */
 function Appointments({ user, fetchHistory, myAppointments }) {
+    // 1. Identify who we are booking for
+    const [selectedMemberId, setSelectedMemberId] = useState(user.patientId);
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedSlot, setSelectedSlot] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const timeBlocks = ["08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00", "17:00 - 18:00"];
+    // This ensures that if the 'user' prop changes (e.g. switching accounts), the state updates
+    useEffect(() => {
+        setSelectedMemberId(user.patientId);
+    }, [user.patientId]);
+
+    // 2. Fetch history for the SPECIFIC member selected
+    useEffect(() => {
+        if (fetchHistory) fetchHistory(selectedMemberId);
+    }, [selectedMemberId, fetchHistory]);
+
+    const timeBlocks = [
+        "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", 
+        "11:00 - 12:00", "13:00 - 14:00", "14:00 - 15:00", 
+        "15:00 - 16:00", "16:00 - 17:00", "17:00 - 18:00"
+    ];
+
+    // Added the handleCancel function
+    const handleCancel = async (appointmentId) => {
+        if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
+        try {
+            const res = await fetch(`http://127.0.0.1:5001/api/cancel-appointment/${appointmentId}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Appointment cancelled.");
+                if (fetchHistory) fetchHistory(selectedMemberId); 
+            } else {
+                alert(data.message);
+            }
+        } catch (err) {
+            alert("Error connecting to server.");
+        }
+    };
 
     const handleBook = async (e) => {
         e.preventDefault();
@@ -227,7 +300,7 @@ function Appointments({ user, fetchHistory, myAppointments }) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    patientId: user.patientId,
+                    patientId: selectedMemberId, 
                     date: selectedDate,
                     timeSlot: selectedSlot
                 })
@@ -236,7 +309,7 @@ function Appointments({ user, fetchHistory, myAppointments }) {
             const data = await res.json();
             if (data.success) {
                 alert(`Confirmed! Token: ${data.tokenNo}`);
-                if (fetchHistory) fetchHistory(); // Refreshes the list below
+                if (fetchHistory) fetchHistory(selectedMemberId); 
             } else {
                 alert(data.message);
             }
@@ -248,29 +321,17 @@ function Appointments({ user, fetchHistory, myAppointments }) {
         }
     };
 
-    const handleCancel = async (appId) => {
-        if (!window.confirm("Cancel this appointment?")) return;
-        try {
-            const res = await fetch('http://127.0.0.1:5001/api/cancel-appointment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ appointmentId: appId })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert("Cancelled successfully.");
-                if (fetchHistory) fetchHistory();
-            }
-        } catch (err) {
-            console.error("Cancel Error:", err);
-        }
-    };
-
     return (
         <div className="page-content">
-            <h2 className="page-title">Booking Center</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="page-title">Booking Center</h2>
+                <div style={{ background: '#eff6ff', padding: '8px 15px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 'bold' }}>
+                        Booking for: {user.name} {user.surname} (Patient ID: {user.patientId})
+                    </span>
+                </div>
+            </div>
 
-            {/* Step 1: Booking Form */}
             <div className="form-container" style={{ background: '#fff', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
                 <h4 style={{ marginBottom: '20px' }}>Schedule New Visit</h4>
                 <form onSubmit={handleBook}>
@@ -279,11 +340,14 @@ function Appointments({ user, fetchHistory, myAppointments }) {
                         type="date"
                         className="custom-input"
                         min={new Date().toISOString().split('T')[0]}
+                        value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
                         style={{ width: '100%', padding: '10px', marginBottom: '15px' }}
                     />
 
-                    <label className="input-label" style={{ display: 'block', marginBottom: '10px' }}>Choose Preferred Time</label>
+                    <label className="input-label" style={{ display: 'block', marginBottom: '10px' }}>
+                        Choose Preferred Time (Max 6 patients per hour)
+                    </label>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
                         {timeBlocks.map(s => (
                             <button
@@ -294,7 +358,8 @@ function Appointments({ user, fetchHistory, myAppointments }) {
                                     background: selectedSlot === s ? '#2563eb' : '#f8fafc',
                                     color: selectedSlot === s ? '#fff' : '#475569',
                                     border: '1px solid #e2e8f0',
-                                    padding: '10px', borderRadius: '8px', cursor: 'pointer'
+                                    padding: '10px', borderRadius: '8px', cursor: 'pointer',
+                                    transition: '0.2s'
                                 }}
                             >
                                 {s}
@@ -305,16 +370,15 @@ function Appointments({ user, fetchHistory, myAppointments }) {
                         type="submit"
                         className="submit-btn"
                         disabled={loading}
-                        style={{ marginTop: '25px', width: '100%', background: '#2563eb', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
+                        style={{ marginTop: '25px', width: '100%', background: '#2563eb', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer' }}
                     >
-                        {loading ? 'Booking...' : 'Confirm Appointment'}
+                        {loading ? 'Processing...' : 'Confirm Appointment'}
                     </button>
                 </form>
             </div>
 
-            {/* Step 2: History & Status Section */}
             <div className="history-section" style={{ marginTop: '40px' }}>
-                <h3>My Appointment Status</h3>
+                <h3>{user.name}'s Appointment Status</h3>
                 <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ background: '#f8fafc' }}>
@@ -356,7 +420,7 @@ function Appointments({ user, fetchHistory, myAppointments }) {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No appointments yet.</td>
+                                    <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No appointments for this family member.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -367,27 +431,16 @@ function Appointments({ user, fetchHistory, myAppointments }) {
     );
 }
 
-const InfoRow = ({
-    label,
-    value,
-    name,
-    type = "text",
-    isSelect = false,
-    options = [],
-    isEditing,
-    formData,
-    setFormData
-}) => (
+/* --- INFO ROW COMPONENT --- */
+const InfoRow = ({ label, value, name, type = "text", isSelect = false, options = [], isEditing, formData, setFormData }) => (
     <div className="info-row" style={{ marginBottom: '15px' }}>
         <label style={{ fontWeight: '600', color: '#64748b', display: 'block', fontSize: '0.85rem', marginBottom: '4px' }}>
             {label}
         </label>
-
         {isEditing ? (
             isSelect ? (
                 <select
                     className="custom-input"
-                    // Ensure we never pass 'undefined' to value
                     value={formData[name] ?? ''}
                     onChange={(e) => setFormData({ ...formData, [name]: e.target.value })}
                 >
@@ -398,19 +451,12 @@ const InfoRow = ({
                 <input
                     type={type}
                     className="custom-input"
-                    // ?? '' handles null values from database safely
                     value={formData[name] ?? ''}
                     onChange={(e) => setFormData({ ...formData, [name]: e.target.value })}
                 />
             )
         ) : (
-            <div style={{
-                padding: '8px 0',
-                borderBottom: '1px solid #f1f5f9',
-                color: '#1e293b',
-                fontWeight: '500',
-                minHeight: '37px' // Keeps layout stable between modes
-            }}>
+            <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9', color: '#1e293b', fontWeight: '500', minHeight: '37px' }}>
                 {value || <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>Not provided</span>}
             </div>
         )}
@@ -703,47 +749,48 @@ function Feedback() { return <div className="page-content"><h2>Feedback</h2><p>F
 /* --- 4. MAIN DASHBOARD --- */
 
 export default function PatientDashboard({ user, setUser }) {
-    console.log("Dashboard Loaded with User:", user); // Check the console for this!
+    console.log("Dashboard Loaded with User:", user);
 
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false);
-    const [myAppointments, setMyAppointments] = useState([]); // Shared state for all tabs
+    const [myAppointments, setMyAppointments] = useState([]);
 
-    // 1. Unified fetch function to be used by Home and Appointments
-    const fetchHistory = async () => {
-        if (!user?.id) return;
+    // 1. Unified fetch function
+    const fetchHistory = async (targetId) => {
+        const idToFetch = targetId || user?.patientId;
+        if (!idToFetch) {
+            console.warn("No Patient ID available to fetch history");
+            return;
+        }
+
         try {
-            const res = await fetch(`http://127.0.0.1:5001/api/my-appointments?patientId=${user.id}`);
+            const res = await fetch(`http://127.0.0.1:5001/api/my-appointments?patientId=${idToFetch}`);
             const data = await res.json();
             if (data.success) {
-                // Sort by date so the next upcoming one is always index [0]
-                const sorted = data.appointments.sort((a, b) =>
-                    new Date(a.appointment_day) - new Date(b.appointment_day)
-                );
-                setMyAppointments(sorted);
+                setMyAppointments(data.appointments);
             }
         } catch (err) {
-            console.error("History fetch failed", err);
+            console.error("Error fetching history:", err);
         }
     };
 
-    // 2. Effect to handle initial load and family profile switching
+    // 2. Auth & Sync with LocalStorage
     useEffect(() => {
         const saved = localStorage.getItem('hospital_user');
         if (saved) {
             const parsedUser = JSON.parse(saved);
-            // Only update if current user state is empty
             if (!user) {
                 setUser(parsedUser);
             }
-        } else {
-            // ONLY redirect if there is absolutely nothing in localStorage
+        } else if (!user) {
             navigate('/');
         }
-    }, [user]); // Add user to dependency
+    }, [user, navigate, setUser]);
+
+    // 3. Fetch data whenever the user/patient changes
     useEffect(() => {
-        if (user?.patientId) { // Use patientId specifically
-            fetchHistory();
+        if (user?.patientId) {
+            fetchHistory(user.patientId);
         }
     }, [user?.patientId]);
 
@@ -787,9 +834,11 @@ export default function PatientDashboard({ user, setUser }) {
             <div className="dashboard-body">
                 <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
                     {menuItems.map((item) => (
-                        <button key={item.path}
+                        <button 
+                            key={item.path}
                             className={`nav-item ${window.location.pathname === item.path ? 'active' : ''}`}
-                            onClick={() => { navigate(item.path); setMenuOpen(false); }}>
+                            onClick={() => { navigate(item.path); setMenuOpen(false); }}
+                        >
                             <item.icon size={20} />
                             <span>{item.label}</span>
                         </button>
@@ -798,36 +847,18 @@ export default function PatientDashboard({ user, setUser }) {
 
                 <main className="main-content">
                     <Routes>
-                        {/* PASS myAppointments to Home for the Ticket Hero section */}
-                        <Route path="/" element={
-                            <DashboardHome user={user} myAppointments={myAppointments} />
-                        } />
-
-                        <Route path="family" element={
-                            <FamilySection user={user} setUser={setUser} />
-                        } />
-
-                        <Route path="profile" element={
-                            <ProfileEdit user={user} setUser={setUser} />
-                        } />
-
-                        {/* PASS fetchHistory and myAppointments to the Booking Center */}
+                        <Route path="/" element={<DashboardHome user={user} myAppointments={myAppointments} />} />
+                        <Route path="family" element={<FamilySection user={user} setUser={setUser} />} />
+                        <Route path="profile" element={<ProfileEdit user={user} setUser={setUser} />} />
                         <Route path="appointments" element={
-                            <Appointments
-                                user={user}
-                                fetchHistory={fetchHistory}
-                                myAppointments={myAppointments}
+                            <Appointments 
+                                user={user} 
+                                fetchHistory={fetchHistory} 
+                                myAppointments={myAppointments} 
                             />
                         } />
-
                         <Route path="queue" element={<LiveQueue myAppointments={myAppointments} />} />
                         <Route path="feedback" element={<Feedback user={user} />} />
-
-                        {/*<Route path="records" element={<MedicalRecords />} />
-                        <Route path="prescriptions" element={<Prescriptions />} />
-                        <Route path="lab" element={<LabResults />} />
-                        <Route path="notifications" element={<Notifications />} />*/}
-
                     </Routes>
                 </main>
             </div>

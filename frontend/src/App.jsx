@@ -8,6 +8,7 @@ import ReceptionistDashboard from './ReceptionistDashboard';
 import AdminDashboard from './AdminDashboard'; // MISSING IMPORT ADDED
 import ForgotPassword from './ForgotPassword';
 import DoctorDashboard from './DoctorDashboard'; // Ensure the path is correct!
+import PharmacistDashboard from './PharmacistDashboard';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -50,6 +51,12 @@ function App() {
           user?.roles?.includes('receptionist') ? <ReceptionistDashboard user={user} setUser={setUser} /> : <Navigate to="/" />
         } />
 
+        {/* Pharmacist Route */}
+        <Route path="/pharmacist/*" element={
+          (user?.role?.toLowerCase() === 'pharmacist' || user?.roles?.includes('pharmacist'))
+            ? <PharmacistDashboard user={user} setUser={setUser} /> 
+            : <Navigate to="/login" replace />
+        } />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
