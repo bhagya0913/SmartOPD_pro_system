@@ -1,0 +1,245 @@
+/* Base Reset & Variables */
+:root {
+  --primary: #3b82f6;      /* Blue-500 */
+  --primary-hover: #2563eb;/* Blue-600 */
+  --bg-gradient: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  --text-main: #111827;    /* Gray-900 */
+  --text-muted: #4b5563;   /* Gray-600 */
+  --white: #ffffff;
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.min-h-screen {
+  min-height: 100vh;
+  /* Use your image from the public folder */
+  /* The linear-gradient creates a "white-wash" effect so the cards stay clean */
+  background: linear-gradient(
+      rgba(239, 246, 255, 0.4), 
+      rgba(240, 253, 244, 0.4)
+    ),
+    url('/background.jpeg') no-repeat center center fixed;
+  background-size: cover;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* This replaces the solid white backgrounds */
+.bg-white {
+  /* 0.8 means 80% white opacity - perfectly clear for reading */
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  
+  /* The "Frosted" effect - makes the image behind look blurred */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  
+  /* A thin border helps define the edges of transparent cards */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  
+  /* Ensure the text stays dark and sharp */
+  color: #111827; 
+}
+
+/* Ensure the shadow makes the transparent card "lift" */
+.shadow-sm {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Layout Containers */
+.max-w-7xl {
+  max-width: 80rem; /* 1280px */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.mx-auto { margin-left: auto; margin-right: auto; }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.py-16 { padding-top: 4rem; padding-bottom: 4rem; }
+
+/* Header & Navigation */
+.bg-white { background-color: var(--white); }
+.shadow-sm { box-shadow: var(--shadow); }
+.border-t { border-top: 1px solid #e5e7eb; }
+
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-3 { gap: 0.75rem; }
+.gap-6 { gap: 1.5rem; }
+
+/* Logo & Branding */
+.w-12 { width: 3rem; }
+.h-12 { height: 3rem; }
+.bg-blue-500 { background-color: var(--primary); }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-xl { border-radius: 0.75rem; }
+
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.font-bold { font-weight: 700; }
+.text-gray-900 { color: var(--text-main); }
+.text-gray-600 { color: var(--text-muted); }
+.text-sm { font-size: 0.875rem; }
+.text-white { color: var(--white); }
+
+/* Buttons */
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+.font-medium { font-weight: 500; }
+
+.text-blue-600 { color: var(--primary); }
+.hover\:bg-blue-50:hover { background-color: #eff6ff; }
+.hover\:bg-blue-600:hover { background-color: var(--primary-hover); }
+.transition-colors { transition: background-color 0.2s, color 0.2s; }
+
+/* Hero Section */
+.text-center { text-align: center; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-12 { margin-bottom: 3rem; }
+.mb-16 { margin-bottom: 4rem; }
+.text-4xl { font-size: 2.25rem; font-weight: 800; }
+.text-xl { font-size: 1.25rem; }
+.max-w-3xl { max-width: 48rem; }
+
+/* Services Grid */
+.grid { display: grid; }
+.gap-6 { gap: 1.5rem; }
+
+/* Default mobile 1 column, tablets 2 columns, desktop 4 columns */
+@media (min-width: 768px) {
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+
+/* Card Icon Backgrounds */
+.bg-blue-100 { background-color: #dbeafe; }
+.bg-green-100 { background-color: #dcfce7; }
+.bg-purple-100 { background-color: #f3e8ff; }
+.bg-orange-100 { background-color: #ffedd5; }
+
+.text-green-600 { color: #16a34a; }
+.text-purple-600 { color: #9333ea; }
+.text-orange-600 { color: #ea580c; }
+
+/* Hover transitions for Cards */
+.transition-shadow { transition: box-shadow 0.3s; }
+.hover\:shadow-md:hover { box-shadow: var(--shadow-md); }
+
+/* Info Section */
+.flex-start { align-items: flex-start; }
+.mt-1 { margin-top: 0.25rem; }
+
+/* Make titles and descriptions pop against the glass */
+.font-semibold {
+  font-weight: 600;
+  color: #000000; /* Use true black for headers for maximum contrast */
+}
+
+.text-gray-600 {
+  color: #1f2937; /* Darker gray (Gray-800) instead of Gray-600 */
+}
+
+.text-sm {
+  font-weight: 500; /* Slightly thicker for small text */
+}
+/* The Hospital Info wrapper */
+.hospital-info-card, .bg-white.rounded-xl {
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+/* Update your card styles with this hover logic */
+.service-card, .bg-white.rounded-xl {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.service-card:hover, .bg-white.rounded-xl:hover {
+  /* Transparency decreases: 0.8 -> 0.95 (becomes more solid white) */
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  
+  /* Lift effect */
+  transform: translateY(-5px);
+  
+  /* Glow/Shadow effect */
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Sharpen the edges on hover */
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+.btn-login {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--primary);
+  transition: all 0.2s ease;
+}
+
+.btn-login:hover {
+  background-color: rgba(59, 130, 246, 0.1); /* Subtle blue tint */
+  transform: scale(1.02);
+}
+
+.btn-reg {
+  transition: all 0.2s ease;
+}
+
+.btn-reg:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+footer.bg-white {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(8px);
+}
+/* Initial state: hidden and slightly lower */
+.service-card {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: slideUp 0.8s ease forwards;
+}
+
+/* Stagger the timing for each card */
+.service-grid div:nth-child(1) { animation-delay: 0.2s; }
+.service-grid div:nth-child(2) { animation-delay: 0.4s; }
+.service-grid div:nth-child(3) { animation-delay: 0.6s; }
+.service-grid div:nth-child(4) { animation-delay: 0.8s; }
+
+@keyframes slideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.logo-box svg {
+  animation: pulse-heart 2.5s infinite ease-in-out;
+}
+
+@keyframes pulse-heart {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.8; }
+}
+.service-card:hover {
+  transform: translateY(-8px);
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border-color: #3b82f6;
+  box-shadow: 0 15px 30px rgba(59, 130, 246, 0.15); /* Soft blue shadow */
+}
+.header-main h2 {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
