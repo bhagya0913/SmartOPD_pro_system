@@ -1,36 +1,639 @@
-/* Layout Containers */
-/*  */
+/* 1. LAYOUT ROOT */
+
 .dashboard-container {
     min-height: 100vh;
-    width: 100%;
-    /* Replace the URL below with your actual image path or URL */
-    background-image: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), 
-                      url('../background.jpeg');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    background-repeat: no-repeat;
+    width: 100vw;
     display: flex;
     flex-direction: column;
+    /* --- The Background Image --- */
+    background: url('patientbg.jpg') no-repeat center center fixed;
+    background-size: cover;
 }
 
-/* [cite: 189] */
-.main-content {
-    background: rgba(255, 255, 255, 0.7); /* Adjust 0.7 to change transparency */
-    backdrop-filter: blur(5px); /* Adds a modern frosted-glass effect */
+
+
+/* 2. TOP NAVIGATION */
+
+
+.nav-left, .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* --- UPDATED SIDEBAR TEXT COLORS --- */
+
+
+/* 4. SIDEBAR - Charm Light Theme */
+/* 4. SIDEBAR - Charm Light Theme */
+.sidebar {
+    width: 260px !important;
+    min-width: 260px !important;
+    /* This is the Charm Light color (Soft Pearl/White) */
+    background: #577ea5 !important; 
+    
+    /* Subtle border instead of a heavy color */
+    border-right: 1px solid #e2e8f0 !important;
+    
+    height: calc(100vh - 64px);
+    position: sticky;
+    top: 64px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+/* Sidebar Scroll container from your JSX */
+.sidebar-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+/* Tab names must be dark to be seen on the light background */
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: #ebedf0 !important; /* Dark Slate Gray for text */
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.nav-item:hover {
+    background: #f1f5f9;
+    color: #2563eb !important;
+}
+
+.nav-item.active {
+    background: #eff6ff !important; /* Soft Blue highlight */
+    color: #2563eb !important;      /* Electric Blue text */
+}
+
+.nav-icon {
+    color: inherit;
+}
+/* Tab Names (Darker for readability on light background) */
+
+
+/* Hover State */
+.nav-item:hover {
+    background: #f1f5f9;
+    color: #2563eb;
+}
+
+/* The Active Tab */
+
+
+/* Subtle "Active Indicator" Line */
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    width: 6px;
+    height: 6px;
+    background: #2563eb;
+    border-radius: 50%;
+}
+
+
+
+.nav-item.active .nav-icon {
+    opacity: 1;
+}
+
+.nav-item.active .nav-icon {
+    opacity: 1;
+}
+
+
+.sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+.nav-logo-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.brand-icon-box.small {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    padding: 6px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.logo-text {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #1e293b;
+    letter-spacing: -0.025em;
+}
+
+/* 3. USER PROFILE & LOGOUT */
+.user-profile-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 12px;
+    background: #f8fafc;
+    border-radius: 50px;
+    border: 1px solid #e2e8f0;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+}
+
+.user-display-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.user-id-subtext {
+    font-size: 0.7rem;
+    color: #64748b;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    background: #2563eb;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.icon-logout-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 8px;
+    transition: all 0.2s;
+}
+
+.icon-logout-btn:hover {
+    color: #ef4444;
+    transform: scale(1.1);
+}
+
+/* 4. SIDEBAR */
+
+
+
+
+
+/* 5. MAIN CONTENT AREA */
+
+
+/* 6. HOME GRID SYSTEM */
+.home-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 30px;
+    align-items: start;
+}
+
+/* 7. PATIENT ID CARD (Refined) */
+
+
+
+
+.id-card-body {
+    display: flex;
+    gap: 30px;
+}
+
+.id-photo-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.placeholder-avatar {
+    width: 120px;
+    height: 140px;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
     border-radius: 15px;
-    margin: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    font-weight: 900;
+}
+
+
+
+
+
+
+/* 8. OPD SLIP (Side Column) */
+
+.slip-header {
+    background: #f1f5f9;
+    padding: 30px 20px;
+    text-align: center;
+    border-bottom: 2px dashed #e2e8f0;
+}
+
+.slip-token-big {
+    font-size: 4rem;
+    font-weight: 900;
+    color: #1d4ed8;
+    line-height: 1;
+}
+
+.slip-body {
     padding: 20px;
+}
+
+.slip-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.slip-footer {
+    padding: 15px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #64748b;
+    background: #f8fafc;
+}
+
+/* 9. STATUS TRACKER */
+.completed-mini-status {
+    margin-top: 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 15px;
+}
+
+.check-circle {
+    width: 32px;
+    height: 32px;
+    background: #22c55e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+/* 10. MEDICAL RECORDS TIMELINE */
+.medical-timeline {
+    position: relative;
+    padding-left: 20px;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.record-clinical-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    flex: 1;
+}
+
+.diagnosis-pill {
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+/* 11. ANIMATIONS & RESPONSIVENESS */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1024px) {
+    .home-grid { grid-template-columns: 1fr; }
+    .sidebar {
+        position: fixed;
+        left: -260px;
+        z-index: 1000;
+    }
+    .sidebar.open { transform: translateX(260px); }
+    .menu-toggle { display: block; }
+}
+/* --- MEDICAL & CLINICAL TYPOGRAPHY --- */
+
+/* Page Titles */
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.025em;
+}
+
+/* Clinical Box Styling (Fonts & Labels) */
+.clinical-box label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #94a3b8;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.clinical-box p {
+    font-size: 0.95rem;
+    color: #334155;
+    margin: 0;
+    line-height: 1.5;
+    font-weight: 500; /* Makes clinical text more readable */
+}
+
+.clinical-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Staff Stamp (The small gray text with icons) */
+.staff-stamp {
+    font-size: 0.75rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+.staff-stamp strong {
+    color: #475569;
+}
+
+/* Vitals & Footer Info */
+.card-footer-vitals {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: center;
+}
+
+.vital-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.record-id-stamp {
+    margin-left: auto;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #cbd5e1;
+    background: #f8fafc;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Status Pills for Lab Reports */
+.status-pill {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-pill.completed {
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+}
+
+.status-pill.pending {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fef3c7;
+}
+
+/* Action Buttons for Files */
+.file-action-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 15px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+}
+
+.file-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+}
+
+.file-btn.prescription { background: #eff6ff; color: #2563eb; border-color: #dbeafe; }
+.file-btn.lab { background: #f5f3ff; color: #7c3aed; border-color: #ddd6fe; }
+.file-btn.referral { background: #fff7ed; color: #c2410c; border-color: #ffedd5; }
+
+.file-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+/* Timeline Specifics */
+.timeline-date-column {
+    min-width: 80px;
+    text-align: right;
+}
+
+.date-day {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.date-time {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.date-year {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+/* --- FAMILY MANAGEMENT UI --- */
+
+.family-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    margin-top: 1rem;
+}
+
+.member-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+}
+
+/* Highlight for the currently selected profile */
+.member-card.active {
+    border-color: #2563eb;
+    background: #f0f7ff;
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1);
+}
+
+.member-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 1.5rem;
+}
+
+.member-avatar {
+    width: 48px;
+    height: 48px;
+    background: #e2e8f0;
+    color: #475569;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+}
+
+.member-card.active .member-avatar {
+    background: #2563eb;
+    color: white;
+}
+
+.member-info h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+/* --- REFINED PATIENT ID CARD (Compact Size) --- */
+
+
+/* Hospital Header */
+.hosp-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.hosp-logo span {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+}
+
+/* Chip Icon */
+
+
+/* Info Section Styling */
+.id-info-area {
+    margin-top: 10px;
+}
+
+/* Matching the Name to the Field Style as requested */
+/* --- 1. HOME SCREEN LAYOUT (Fits to Screen) --- */
+.home-container {
+    height: calc(100vh - 100px); /* Adjust based on your header height */
+    overflow: hidden; /* Prevents page scroll */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+}
+
+/* --- 2. LIGHT ASH ID CARD --- */
+.patient-id-card {
+    max-width: 420px;
+    margin: 0 auto; /* Center it */
+    flex-shrink: 0; /* Prevents card from squishing */
 }
 
 .top-nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 2rem;
+    padding: 0 1.5rem;
     height: 64px;
-    background: white;
-    border-bottom: 1px solid #e5e7eb;
+    /* Updated: Semi-transparent white */
+    background: rgba(255, 255, 255, 0.8); 
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.5);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -39,79 +642,271 @@
 .dashboard-body {
     display: flex;
     flex: 1;
+    width: 100%;
+    align-items: flex-start;
+    /* Ensure body doesn't have a solid color */
+    background: transparent; 
 }
 
-/* Sidebar Styling */
-.sidebar {
-    width: 260px;
-    background: white;
-    border-right: 1px solid #e5e7eb;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    gap: 0.5rem;
-}
-
-.nav-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1rem;
-    border: none;
-    background: none;
-    color: #4b5563;
-    font-weight: 500;
-    border-radius: 8px;
-    cursor: pointer;
-    text-align: left;
-    transition: 0.2s;
-}
-
-.nav-item:hover {
-    background: #eff6ff;
-    color: #2563eb;
-}
-
-/* Main Content */
 .main-content {
-    flex: 1;
-    background: #f9fafb;
+    flex-grow: 1;
     padding: 2rem;
+    /* Updated: Removed #f8fafc to reveal the image */
+    background-color: transparent; 
+    min-height: calc(100vh - 64px);
+    box-sizing: border-box;
+}
+
+.page-content {
+    /* Updated: Glass effect so text is readable over image */
+    background: rgba(255, 255, 255, 0.9); 
+    backdrop-filter: blur(8px);
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.4s ease-out;
+}
+
+.opd-slip {
+    /* Updated: Soft glass effect */
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    border-radius: 20px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.queue-section {
+    flex-grow: 1;
+    min-height: 0;
+    /* Updated: Clean white glass */
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
     overflow-y: auto;
 }
 
-/* Content Components */
-.stats-grid {
+.id-card-inner {
+    /* Updated: Semi-transparent Light Ash */
+    background: rgba(241, 245, 249, 0.9); 
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 20px;
+    padding: 20px;
+    color: #334155;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+.id-chip {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 35px;
+    height: 25px;
+    background: linear-gradient(135deg, #d1d5db, #9ca3af); /* Silver Chip */
+    border-radius: 4px;
+}
+
+/* Typography Update */
+.id-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    border-bottom: 2px solid #cbd5e1;
+    padding-bottom: 8px;
+}
+
+.id-field label {
+    font-size: 0.6rem;
+    color: #64748b;
+    font-weight: 700;
+}
+
+.id-field span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+/* --- 3. QUEUE SECTION (Scrolls internally if needed) --- */
+
+
+/* Custom Scrollbar for the Queue */
+.queue-section::-webkit-scrollbar {
+    width: 6px;
+}
+.queue-section::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+/* Grid for NIC, DOB, etc. */
+.id-details-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.id-field.full {
+    grid-column: span 2;
+}
+
+
+/* Barcode Footer */
+.id-card-footer {
+    margin-top: 20px;
+    background: white; /* Contrast for scanning */
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.barcode-container {
+    text-align: center;
+}
+
+.barcode-mock-bars {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    justify-content: center;
+}
+
+.barcode-id-text {
+    display: block;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #000;
+    margin-top: 4px;
+}
+.barcode-tag {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.member-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: auto;
+}
+
+/* Button Styling inside Family Cards */
+.action-btn {
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.action-btn.primary {
+    background: #2563eb;
+    color: white;
+}
+
+.action-btn.secondary {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.action-btn.disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.action-btn:hover:not(.disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+}
+
+/* Info Banner in Registration */
+.info-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #eff6ff;
+    padding: 12px 16px;
+    border-radius: 12px;
+    color: #1e40af;
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+}
+/* --- FAMILY REGISTRATION FORM --- */
+
+.registration-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 24px;
+    border: 1px solid #e2e8f0;
+    margin-top: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.section-subtitle {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+}
+
+.family-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns */
     gap: 1.5rem;
-    margin-top: 1rem;
 }
 
-.stat-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-/* Form Styling */
-.form-container {
-    max-width: 500px;
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
+.input-group label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+/* Forces Name and Button to take full width of the grid */
+.full-width {
+    grid-column: 1 / -1;
 }
 
 .custom-input {
     width: 100%;
-    padding: 0.75rem;
-    margin: 0.5rem 0 1.5rem 0;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    color: #1e293b;
+    transition: all 0.2s;
+    background: #f8fafc;
     box-sizing: border-box;
+}
+
+.custom-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
 }
 
 .submit-btn {
@@ -120,114 +915,127 @@
     background: #2563eb;
     color: white;
     border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.submit-btn:hover { background: #1d4ed8; }
-
-/* Mobile Menu Logic */
-@media (max-width: 1024px) {
-    .sidebar {
-        position: fixed;
-        left: -260px;
-        height: 100%;
-        transition: 0.3s;
-    }
-    .sidebar.open {
-        left: 0;
-    }
-}
-
-/* Additional Styles for filled tabs */
-.page-title {
-    font-size: 1.8rem;
-    color: #111827;
-    margin-bottom: 2rem;
-}
-
-.page-content {
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-label {
-    display: block;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 0.25rem;
-}
-
-/* Add this to the bottom of PatientDashboard.css */
-.stat-card h4 {
-    color: #1f2937;
-    font-size: 1.1rem;
-    margin-bottom: 5px;
-}
-
-.stat-card p {
-    margin: 5px 0;
-}
-
-/* This makes the lists look like a single column on mobile and grid on desktop */
-@media (min-width: 768px) {
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-.active-profile {
-    border: 2px solid #2563eb !important;
-    background-color: #eff6ff !important;
-}
-
-.nav-item.active {
-    background: #eff6ff;
-    color: #2563eb;
-    border-right: 4px solid #2563eb;
-}
-
-.barcode-placeholder {
-    font-family: 'Libre Barcode 128', cursive; /* Optional: Use a barcode font */
-}
-
-.nav-item.active {
-    background-color: #eff6ff;
-    color: #2563eb;
-    border-right: 4px solid #2563eb;
-    font-weight: 600;
-}
-
-.profile-form label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #374151;
-}
-
-.status-pill {
-    padding: 4px 8px;
     border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: bold;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 10px;
 }
-.status-pill.booked { background: #e3f2fd; color: #1976d2; }     /* Blue */
-.status-pill.cancelled { background: #ffebee; color: #c62828; }  /* Red */
-.status-pill.completed { background: #e8f5e9; color: #2e7d32; }  /* Green */
 
-.cancel-btn {
-    background: #ff4d4d;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 4px;
+.submit-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);
+}
+
+.submit-btn:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+}
+
+/* Responsive adjustment for small screens */
+@media (max-width: 768px) {
+    .family-form-grid {
+        grid-template-columns: 1fr; /* Stack inputs on mobile */
+    }
+}
+/* --- NOTIFICATIONS DESIGN --- */
+.notification-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.notif-card {
+    display: flex;
+    gap: 15px;
+    background: white;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.notif-card:hover {
+    transform: translateX(5px);
+    border-color: #cbd5e1;
+}
+
+.notif-card.urgent {
+    border-left: 4px solid #ef4444;
+    background: #fffafb;
+}
+
+.notif-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.notif-icon.alert { background: #fee2e2; color: #ef4444; }
+.notif-icon.lab { background: #f5f3ff; color: #7c3aed; }
+.notif-icon.info { background: #eff6ff; color: #2563eb; }
+
+.notif-content h4 { margin: 0; font-size: 0.95rem; color: #1e293b; font-weight: 700; }
+.notif-content p { margin: 4px 0 0; font-size: 0.85rem; color: #64748b; line-height: 1.4; }
+.notif-top { display: flex; justify-content: space-between; align-items: center; }
+.notif-top span { font-size: 0.75rem; color: #94a3b8; }
+
+/* --- REFERRALS DESIGN --- */
+.referral-doc-card {
+    background: #ffffff;
+    border: 1px dashed #cbd5e1; /* Makes it look like a document */
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px;
+    position: relative;
+}
+
+.doc-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.doc-header h3 { margin: 0; font-size: 1.1rem; color: #1e293b; }
+.doc-header span { font-size: 0.75rem; color: #94a3b8; font-family: monospace; }
+
+.doc-row { margin-bottom: 12px; }
+.doc-row label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+.doc-row p { margin: 2px 0 0; font-size: 0.9rem; color: #334155; font-weight: 500; }
+
+.status-tag {
+    margin-left: auto;
+    background: #dcfce7;
+    color: #166534;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.download-ref-btn {
+    width: 100%;
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     cursor: pointer;
 }
-.cancel-btn:hover { background: #cc0000; }
+
+.download-ref-btn:hover { background: #f1f5f9; color: #2563eb; }

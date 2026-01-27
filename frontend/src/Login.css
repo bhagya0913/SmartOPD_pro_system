@@ -1,119 +1,142 @@
 /* src/Login.css */
-.login-screen {
-    min-height: 100vh;
-    background: linear-gradient(to bottom right, #eff6ff, #f0fdf4);
+
+/* Main Page Container - Locks height and sets background */
+.auth-page {
+    height: 100vh;
+    width: 100vw;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem;
-    font-family: 'Inter', sans-serif;
+    
+    /* Updated Background logic */
+    background: linear-gradient(rgba(239, 246, 255, 0.4), rgba(240, 253, 244, 0.4)),
+                url('/background.jpg');
+    
+    /* This centers the image vertically and horizontally */
+    background-position: center center; 
+    
+    /* This ensures it covers the screen without stretching */
+    background-size: cover; 
+    
+    /* This prevents the image from repeating if it's smaller than the screen */
+    background-repeat: no-repeat; 
+    
+    /* This keeps the image locked in place during any minor scrolls */
+    background-attachment: fixed; 
+
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
 }
 
-.login-wrapper {
-    width: 100%;
-    max-width: 448px;
+/* The Glass-morphism Card */
+.auth-card {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); /* Safari support */
+    border-radius: 20px;
+    padding: 2rem 2.5rem; 
+    width: 90%;
+    max-width: 450px; 
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    animation: fadeInScale 0.5s ease-out;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-sizing: border-box;
 }
 
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Brand Header - Centered Group */
 .login-brand {
-    text-align: center;
-    margin-bottom: 2rem;
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    gap: 15px;
+    margin-bottom: 1.5rem;
+    width: 100%;
 }
 
 .brand-icon-box {
-    width: 4rem;
-    height: 4rem;
-    background-color: #3b82f6;
-    border-radius: 0.75rem;
+    width: 3.2rem;
+    height: 3.2rem;
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
 }
 
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left; 
+}
+
+.brand-title {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+    color: #1e293b;
+    margin: 0 !important;
+    letter-spacing: -0.5px;
+    line-height: 1;
+}
+
+.brand-subtitle {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #64748b;
+    margin-top: 4px !important;
+}
+
+/* Form Styling - All Left Aligned */
 .login-form-card {
-    background: white;
-    border-radius: 1.25rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    padding: 2rem;
+    text-align: left;
+    width: 100%;
 }
 
 .form-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
-    color: #111827;
-    margin-bottom: 1.5rem;
+    color: #1e293b;
+    margin-bottom: 1.2rem;
 }
 
 .input-container {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
+    width: 100%;
 }
 
 .input-label {
     display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4b5563;
+    margin-bottom: 6px;
 }
 
-/* Update the relative container to ensure it has a consistent height */
 .input-relative {
     position: relative;
-    display: flex;
-    align-items: center;
+    width: 100%;
 }
 
-/* Fix for overlapping icons and text */
+/* Inputs - Clean, High Contrast */
 .form-input, .form-select {
     width: 100%;
-    /* 1. Ensure the height is fixed so the icon stays centered */
-    height: 48px; 
-    /* 2. Increased left padding (3rem) to give the icon plenty of room */
-    padding: 0 1rem 0 3rem !important; 
+    height: 44px;
+    padding: 0 1rem 0 2.8rem !important;
     border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    background-color: white;
-    /* 3. This ensures padding doesn't increase the width of the box */
-    box-sizing: border-box; 
-    transition: all 0.2s;
-    display: block;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    background-color: white !important;
+    color: #1f2937 !important; 
+    box-sizing: border-box;
+    transition: all 0.2s ease;
 }
-
-/* Ensure the icon is placed exactly within that 3rem padding area */
-.input-icon {
-    position: absolute;
-    left: 1rem; /* Locked to the left */
-    top: 50%;
-    transform: translateY(-50%);
-    color: #9ca3af;
-    pointer-events: none;
-    z-index: 10; /* Keeps icon above the input background */
-}
-
-/* Special fix for select to prevent text shifting */
-.form-select {
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 1rem center;
-    background-size: 1.25rem;
-}
-
-
-/* Add a custom arrow for the select since we hid the default one */
-.input-relative:has(.form-select)::after {
-    content: '▼';
-    font-size: 0.7rem;
-    position: absolute;
-    right: 1rem;
-    color: #9ca3af;
-    pointer-events: none;
-}
-
 
 .form-input:focus, .form-select:focus {
     outline: none;
@@ -121,198 +144,56 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.input-icon {
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    z-index: 5;
+}
+
+/* Button & Links */
+.btn-login-action {
+    width: 100%;
+    height: 46px;
+    background: #3b82f6;
+    color: white;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: background 0.3s;
+}
+
+.btn-login-action:hover {
+    background: #2563eb;
+}
+
 .forgot-link {
-    display: block;
-    width: fit-content;
-    margin-left: auto;
-    margin-top: 0.25rem;
-    margin-bottom: 1.5rem;
-    font-size: 0.875rem;
-    color: #2563eb;
+    font-size: 0.85rem;
+    color: #3b82f6;
     background: none;
     border: none;
     cursor: pointer;
     font-weight: 500;
-}
-
-.btn-login-action {
-    width: 100%;
-    background-color: #3b82f6;
-    color: white;
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    font-size: 1.125rem;
-    border: none;
-    cursor: pointer;
-    transition: background 0.2s;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-
-.btn-login-action:hover {
-    background-color: #2563eb;
+    padding: 0;
 }
 
 .register-prompt {
-    margin-top: 1.5rem;
+    margin-top: 1.2rem;
     text-align: center;
-    color: #4b5563;
+    font-size: 0.9rem;
+    color: #64748b;
 }
 
 .text-btn {
     background: none;
     border: none;
-    color: #2563eb;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.back-home-btn {
-    margin-top: 1.5rem;
-    text-align: center;
-    width: 100%;
-}
-.login-form-card {
-  background: rgba(255, 255, 255, 0.1); /* Transparent white */
-  backdrop-filter: blur(20px);
-  padding: 3rem;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  width: 100%;
-  max-width: 450px;
-}
-
-/* The Inputs */
-.form-input {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 12px 16px;
-  transition: all 0.3s ease;
-}
-
-.form-input:focus {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
-  outline: none;
-}
-
-/* Animated Login Button */
-.btn-login-action {
-  background: linear-gradient(45deg, var(--primary-blue), var(--accent-cyan));
-  color: white;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  overflow: hidden;
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-.btn-login-action:hover {
-  filter: brightness(1.1);
-  letter-spacing: 1px;
-}
-/* Animated Blobs */
-.blob {
-  position: absolute;
-  width: 300px;
-  height: 300px;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(6, 182, 212, 0.2));
-  filter: blur(80px);
-  border-radius: 50%;
-  z-index: -1;
-  animation: float 10s infinite alternate;
-}
-
-.blob-1 { top: 10%; left: 5%; }
-.blob-2 { bottom: 15%; right: 10%; animation-delay: -5s; }
-
-@keyframes float {
-  from { transform: translate(0, 0); }
-  to { transform: translate(50px, 100px); }
-}
-.typewriter-text {
-  display: block;            /* Keeps your block layout */
-  width: fit-content;        /* Necessary for the width animation to work */
-  margin-left: auto;         /* Centers the block text */
-  margin-right: auto;        /* Centers the block text */
-  overflow: hidden;          /* Hides the text as it "types" */
-  white-space: nowrap;       /* Keeps text on a single line */
-  border-right: 3px solid #3b82f6; /* The blinking cursor */
-  
-  /* steps(48) should match the approximate character count of your phrase */
-  animation: 
-    typing 3s steps(48, end) forwards,
-    blink-caret 0.75s step-end infinite;
-}
-
-/* Typing effect: expands width from 0 to 100% */
-@keyframes typing {
-  from { width: 0 }
-  to { width: 100% }
-}
-
-/* Cursor blinking effect */
-@keyframes blink-caret {
-  from, to { border-color: transparent }
-  50% { border-color: #3b82f6 }
-}
-
-.auth-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(rgba(239, 246, 255, 0.4), rgba(240, 253, 244, 0.4)),
-                url('/background.jpeg') no-repeat center center fixed;
-    background-size: cover;
-    padding: 2rem;
-}
-
-.auth-card {
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(12px);
-    border-radius: 24px;
-    padding: 3rem;
-    width: 100%;
-    max-width: 550px; /* This gives you the wider inputs */
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    position: relative;
-    overflow: hidden;
-}
-
-.input-relative {
-    position: relative;
-    width: 100%;
-}
-
-.form-input, .form-select {
-    width: 100%;
-    padding: 0.8rem 1rem 0.8rem 2.8rem; /* Space for the icon */
-    border-radius: 10px;
-    border: 1px solid rgba(0,0,0,0.1);
-    background: white;
-    font-size: 1rem;
-    margin-bottom: 1rem;
-}
-
-.input-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6b7280;
-    pointer-events: none;
-}
-
-.btn-login-action {
-    width: 100%;
-    padding: 1rem;
-    background: #3b82f6;
-    color: white;
-    border-radius: 10px;
+    color: #3b82f6;
     font-weight: 700;
-    transition: background 0.3s;
+    cursor: pointer;
+    padding-left: 4px;
 }

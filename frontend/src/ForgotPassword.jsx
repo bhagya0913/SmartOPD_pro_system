@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ForgotPassword.css'; // Remove Login.css and use this
 
+
+
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');
     const [token, setToken] = useState('');
@@ -11,12 +13,17 @@ export default function ForgotPassword() {
     const navigate = useNavigate();
 
     const handleRequest = async (e) => {
+        console.log("Sending request for email:", email);
         if (e) e.preventDefault();
+        if (!email) {
+        alert("Please enter an email address first.");
+        return;
+    }
         try {
             const res = await fetch('http://127.0.0.1:5001/forgot-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email: email })
             });
             const data = await res.json();
             if (data.success) {
@@ -26,14 +33,31 @@ export default function ForgotPassword() {
         } catch (err) { alert("Server error"); }
     };
 
-    const handleVerifyToken = (e) => {
-        e.preventDefault();
-        if (token.length === 6) {
-            setStep(3); // Move to password entry
+    const handleVerifyToken = async (e) => {
+    e.preventDefault();
+    if (token.length !== 6) {
+        alert("Please enter a valid 6-digit code.");
+        return;
+    }
+
+    try {
+        // We call the backend to check if the code matches the email
+        const res = await fetch('http://127.0.0.1:5001/verify-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, token })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            setStep(3); // Only move to password entry if code is correct
         } else {
-            alert("Please enter a valid 6-digit code.");
+            alert(data.message || "Invalid or expired code.");
         }
-    };
+    } catch (err) {
+        alert("Verification failed. Please try again.");
+    }
+};
 
     const handleReset = async (e) => {
         e.preventDefault();
@@ -67,7 +91,7 @@ export default function ForgotPassword() {
 
             {step === 1 && (
                 <form onSubmit={handleRequest}>
-                    <h2 className="form-title">Find Your Account</h2>
+                    <h2 className="form-title" >Find Your Account</h2>
                     <p style={{ textAlign: 'center', color: '#666', marginBottom: '20px' }}>
                         Enter your email to receive a 6-digit reset code.
                     </p>

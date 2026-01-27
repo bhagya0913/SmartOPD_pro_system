@@ -1,244 +1,274 @@
-import React, { useState } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import './DoctorDashboard.css'; // Keep the same CSS for consistent theme
+import { useNavigate } from 'react-router-dom';
 import { 
-  ScanBarcode, UserPlus, Calendar, Users, Clock, 
-  LogOut, Menu, X, Home, Settings 
+    ScanBarcode, Home, User, Bell, MessageSquare, X, LogOut, 
+    ArrowLeft, Search, Users, Clock, UserSearch, 
+    Fingerprint, Activity, CheckCircle, AlertTriangle, 
+    Calendar, UserPlus, CreditCard, Send, Star 
 } from 'lucide-react';
-import PatientLookup from './PatientLookup';
-import './ReceptionistDashboard.css';
 
 export default function ReceptionistDashboard({ user, setUser }) {
-  const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
+    const [openPatients, setOpenPatients] = useState([]);
+    const [activeTab, setActiveTab] = useState('home');
+    const navigate = useNavigate();
 
-  const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/receptionist' },
-    { icon: ScanBarcode, label: 'Scan Patient', path: '/receptionist/scan' },
-    { icon: UserPlus, label: 'Register New Patient', path: '/receptionist/register' },
-    { icon: Calendar, label: 'Verify Appointments', path: '/receptionist/verify' },
-    { icon: Users, label: 'Daily Patient List', path: '/receptionist/patients' },
-    { icon: Settings, label: 'OPD Settings', path: '/receptionist/settings' },
-  ];
+    const openPatientSession = (patient) => {
+        if (!openPatients.find(p => p.id === patient.id)) {
+            setOpenPatients([...openPatients, patient]);
+        }
+        setActiveTab(patient.id);
+    };
 
-  const handleLogout = () => {
-    setUser(null);
-    navigate('/');
-  };
+    const closeTab = (id, e) => {
+        e.stopPropagation();
+        const filtered = openPatients.filter(p => p.id !== id);
+        setOpenPatients(filtered);
+        if (activeTab === id) setActiveTab('home');
+    };
 
-  return (
-    <div className="dash-container">
-      {/* Top Navbar */}
-      <nav className="dash-nav">
-        <div className="nav-brand">
-          <button onClick={() => setMenuOpen(!menuOpen)} className="lg-hidden-btn">
-            {menuOpen ? <X /> : <Menu />}
-          </button>
-          <h1>SmartOPD - Receptionist</h1>
+    return (
+        <div className="doctor-layout"> 
+            <aside className="sidebar">
+                <div className="sidebar-logo" style={{ color: 'white', marginBottom: '2rem', fontWeight: 800, fontSize: '1.5rem' }}>
+                    SmartOPD <small style={{fontSize: '0.6rem', display: 'block', opacity: 0.7}}>FRONT DESK</small>
+                </div>
+                
+                <div className="sidebar-scroll">
+                    <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+                        <Home size={20} className="nav-icon" /> 
+                        <span>RECEPTION HOME</span>
+                    </button>
+
+                    <button className={`nav-item ${activeTab === 'retrieve' ? 'active' : ''}`} onClick={() => setActiveTab('retrieve')}>
+                        <UserSearch size={20} className="nav-icon" /> 
+                        <span>FIND PATIENT</span>
+                    </button>
+
+                    <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+                        <User size={20} className="nav-icon" /> 
+                        <span>MY PROFILE</span>
+                    </button>
+
+                    <button className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>
+                        <Bell size={20} />
+                        <span>ALERTS</span>
+                    </button>
+
+                    <button className={`nav-item ${activeTab === 'feedback' ? 'active' : ''}`} onClick={() => setActiveTab('feedback')}>
+                        <MessageSquare size={20} />
+                        <span>FEEDBACK</span>
+                    </button>
+
+                    <div style={{ margin: 'auto' }}></div>
+
+                    <button className="nav-item" onClick={() => { setUser(null); navigate('/'); }} style={{ color: '#fca5a5' }}>
+                        <LogOut size={20} className="nav-icon" /> 
+                        <span>LOGOUT</span>
+                    </button>
+                </div>
+            </aside>
+
+            <main className="main-content">
+                <div className="internal-tab-bar">
+                    <div className={`tab-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+                        Front Desk Feed
+                    </div>
+
+                    {openPatients.map(p => (
+                        <div key={p.id} className={`tab-item ${activeTab === p.id ? 'active' : ''}`} onClick={() => setActiveTab(p.id)}>
+                            {p.name}
+                            <X size={14} className="close-icon" onClick={(e) => closeTab(p.id, e)} />
+                        </div>
+                    ))}
+                </div>
+
+                <div className="tab-window">
+                    {(activeTab === 'home' || !activeTab) && <ReceptionHome onOpen={openPatientSession} user={user} />}
+                    {activeTab === 'profile' && <ReceptionProfile user={user} setUser={setUser} />}
+                    {activeTab === 'retrieve' && <FindPatient onOpen={openPatientSession} />}
+                    {activeTab === 'notifications' && <ReceptionNotifications />}
+                    {activeTab === 'feedback' && <ReceptionFeedback user={user} />}
+
+                    {openPatients.map(p => (
+                        <div key={p.id} style={{ display: activeTab === p.id ? 'block' : 'none' }}>
+                            <RegistrationPortal patient={p} user={user} />
+                        </div>
+                    ))}
+                </div>
+            </main>
         </div>
-        <div className="nav-profile">
-          <div className="profile-info">
-            <p className="profile-name">{user?.name || 'Staff'}</p>
-            <p className="profile-role">Receptionist</p>
-          </div>
-          <button onClick={handleLogout} className="logout-btn">
-            <LogOut size={20} />
-          </button>
-        </div>
-      </nav>
-
-      <div className="dash-body">
-        {/* Sidebar */}
-        <aside className={`dash-sidebar ${menuOpen ? 'open' : ''}`}>
-          <div className="sidebar-content">
-            {menuItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => { navigate(item.path); setMenuOpen(false); }}
-                className={`menu-item ${window.location.pathname === item.path ? 'active' : ''}`}
-              >
-                <item.icon size={20} />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="dash-main">
-          <Routes>
-            <Route path="/" element={<ReceptionistHome navigate={navigate} />} />
-            <Route path="/scan" element={<ScanPatient />} />
-            <Route path="/register" element={<RegisterPatient />} />
-            <Route path="/verify" element={<VerifyAppointments />} />
-            <Route path="/patients" element={<DailyPatients />} />
-            <Route path="/settings" element={<OPDSettings />} />
-          </Routes>
-        </main>
-      </div>
-    </div>
-  );
+    );
 }
 
-/* --- Sub-Components --- */
+// --- RECEPTION HOME ---
+function ReceptionHome({ onOpen, user }) {
+    const arrivalQueue = [
+        { id: 'P-901', name: 'Kamal Perera', time: '08:30 AM', status: 'Registered', purpose: 'General Checkup' },
+        { id: 'P-902', name: 'Sunil Shantha', time: '08:45 AM', status: 'Pending Pay', purpose: 'Lab Follow-up' },
+    ];
 
-function ReceptionistHome({ navigate }) {
-  return (
-    <div>
-      <h2 className="page-title">Receptionist Dashboard</h2>
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-header"><Users className="text-blue" /><span className="stat-value">45</span></div>
-          <p>Today's Patients</p>
-        </div>
-        <div className="stat-card">
-          <div className="stat-header"><Calendar className="text-green" /><span className="stat-value">32</span></div>
-          <p>Appointments</p>
-        </div>
-        <div className="stat-card">
-          <div className="stat-header"><Clock className="text-purple" /><span className="stat-value">13</span></div>
-          <p>In Queue</p>
-        </div>
-        <div className="stat-card">
-          <div className="stat-header"><UserPlus className="text-orange" /><span className="stat-value">8</span></div>
-          <p>New Registrations</p>
-        </div>
-      </div>
-
-      <div className="action-section">
-        <h3>Quick Actions</h3>
-        <div className="action-grid">
-          <button className="action-btn btn-blue" onClick={() => navigate('/receptionist/scan')}>
-            <ScanBarcode size={32} />
-            <p>Scan Patient</p>
-          </button>
-          <button className="action-btn btn-green" onClick={() => navigate('/receptionist/register')}>
-            <UserPlus size={32} />
-            <p>Register New</p>
-          </button>
-          <button className="action-btn btn-purple" onClick={() => navigate('/receptionist/verify')}>
-            <Calendar size={32} />
-            <p>Verify Appts</p>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScanPatient() {
-  const [showLookup, setShowLookup] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState(null);
-
-  return (
-    <div>
-      <h2 className="page-title">Scan Patient</h2>
-      <div className="card-form">
-        <button onClick={() => setShowLookup(true)} className="btn-primary-large">
-          <ScanBarcode size={24} /> Launch Patient Lookup
-        </button>
-
-        {selectedPatient && (
-          <div className="patient-info-display">
-            <h3>Patient Identified</h3>
-            <div className="info-grid">
-               <div><label>Name</label><p>{selectedPatient.name}</p></div>
-               <div><label>PAT Code</label><p>{selectedPatient.id}</p></div>
-               <div><label>NIC</label><p>{selectedPatient.nic}</p></div>
+    return (
+        <div className="doctor-home-container animate-fade-in">
+            <div className="hero-section" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+                <div className="hero-content">
+                    <div className="hero-text">
+                        <h1>Welcome, {user?.name || 'Receptionist'}</h1>
+                        <p>Manage today's patient arrivals and registrations.</p>
+                    </div>
+                </div>
             </div>
-            <button className="btn-success">Assign to OPD Queue</button>
-          </div>
-        )}
-      </div>
-      {showLookup && <PatientLookup onSelectPatient={(p) => { setSelectedPatient(p); setShowLookup(false); }} onClose={() => setShowLookup(false)} />}
-    </div>
-  );
+
+            <div className="stats-grid">
+                <div className="glass-stat blue">
+                    <div className="stat-icon"><UserPlus size={20} /></div>
+                    <div className="stat-info"><h3>12</h3><p>New Regs</p></div>
+                </div>
+                <div className="glass-stat green">
+                    <div className="stat-icon"><Calendar size={20} /></div>
+                    <div className="stat-info"><h3>45</h3><p>Appointments</p></div>
+                </div>
+                <div className="glass-stat orange">
+                    <div className="stat-icon"><CreditCard size={20} /></div>
+                    <div className="stat-info"><h3>8</h3><p>Pending Payments</p></div>
+                </div>
+            </div>
+
+            <div className="dashboard-main-grid">
+                <div className="card queue-card">
+                    <div className="queue-list"> 
+                        <p><b>Today's Arrival List</b></p>
+                        {arrivalQueue.map(p => (
+                            <div key={p.id} className="queue-item">
+                                <div className="p-time">{p.time}</div>
+                                <div className="p-avatar" style={{background: '#3b82f6'}}>{p.name.charAt(0)}</div>
+                                <div className="p-info">
+                                    <span className="p-name">{p.name}</span>
+                                    <span className="p-reason">{p.purpose}</span>
+                                </div>
+                                <div className="p-status"><span className={`status-tag ${p.status.toLowerCase().replace(' ', '-')}`}>{p.status}</span></div>
+                                <div className="p-action">
+                                    <button className="action-circle-btn" onClick={() => onOpen(p)}>
+                                        <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }
 
-function RegisterPatient() {
-  const [formData, setFormData] = useState({
-    name: '',
-    nic: '',
-    dob: '',
-    phone: ''
-  });
-  const [generatedCode, setGeneratedCode] = useState('');
-
-  const handleRegister = (e) => {
-    e.preventDefault();
-    
-    // Simple validation
-    if (!formData.name || !formData.nic) {
-      alert("Please enter Name and NIC");
-      return;
-    }
-
-    // Generate PAT Code: PAT / 26 (Current Year) / 4 Random Digits
-    const year = new Date().getFullYear().toString().slice(-2);
-    const randomDigits = Math.floor(1000 + Math.random() * 9000);
-    const newCode = `PAT/${year}/${randomDigits}`;
-    
-    setGeneratedCode(newCode);
-    alert(`Success! Patient Registered with Code: ${newCode}`);
-  };
-
-  return (
-    <div>
-      <h2 className="page-title">Register New Patient</h2>
-      <div className="card-form">
-        {!generatedCode ? (
-          <form onSubmit={handleRegister}>
-            <div className="form-row">
-              <div className="form-group full">
-                <label>Full Name</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Enter patient name" 
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                />
-              </div>
-              <div className="form-group">
-                <label>NIC Number</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="e.g. 199012345678" 
-                  onChange={(e) => setFormData({...formData, nic: e.target.value})}
-                />
-              </div>
-              <div className="form-group">
-                <label>Date of Birth</label>
-                <input 
-                  type="date" 
-                  className="form-input" 
-                  onChange={(e) => setFormData({...formData, dob: e.target.value})}
-                />
-              </div>
+// --- PROFILE ---
+function ReceptionProfile({ user, setUser }) {
+    return (
+        <div className="profile-wrapper animate-fade-in">
+            <div className="profile-id-banner" style={{ background: 'linear-gradient(135deg, #3b82f6, #1e40af)' }}>
+                <div className="profile-avatar-circle">{user?.name?.charAt(0) || 'R'}</div>
+                <div className="profile-main-meta">
+                    <h2>{user?.name || 'Reception Staff'}</h2>
+                    <span className="staff-badge">Front Desk ID: REC-{user?.staff_id || '101'}</span>
+                </div>
             </div>
-            <button type="submit" className="btn-primary-large" style={{marginTop: '20px'}}>
-              <UserPlus size={20} /> Generate PAT Code & Register
-            </button>
-          </form>
-        ) : (
-          /* Success View */
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <div style={{ background: '#f0fdf4', border: '2px dashed #22c55e', padding: '30px', borderRadius: '1rem' }}>
-              <h3 style={{ color: '#166534', marginTop: 0 }}>Registration Successful!</h3>
-              <p className="text-gray-600">Assign this code to the patient's card:</p>
-              <div style={{ fontSize: '3rem', fontWeight: 'bold', letterSpacing: '2px', color: '#111827', margin: '20px 0' }}>
-                {generatedCode}
-              </div>
-              <button onClick={() => setGeneratedCode('')} className="btn-primary-large">
-                Register Another Patient
-              </button>
+            <div className="profile-grid-container">
+                <div className="card glass-card">
+                    <h3 className="sub-title">Account Info</h3>
+                    <div className="input-group"><label>Email</label><div className="locked-field"><span>{user?.email}</span></div></div>
+                    <div className="input-group mt-20"><label>Role</label><div className="role-chip">Receptionist</div></div>
+                </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+    );
 }
 
-function VerifyAppointments() { return <div><h2 className="page-title">Verify Appointments</h2><p>Appointment verification list here...</p></div>; }
-function DailyPatients() { return <div><h2 className="page-title">Daily Patient List</h2><p>Today's clinical ledger...</p></div>; }
-function OPDSettings() { return <div><h2 className="page-title">OPD Settings</h2><p>Configure hospital quotas...</p></div>; }
+// --- FIND PATIENT ---
+function FindPatient({ onOpen }) {
+    return (
+        <div className="retrieve-container animate-fade-in">
+            <div className="search-glass-card">
+                <div className="search-header">
+                    <div className="search-icon-circle"><UserSearch size={32} /></div>
+                    <h2>Search Patient Records</h2>
+                </div>
+                <div className="search-input-wrapper">
+                    <div className="input-with-icon">
+                        <Fingerprint className="field-icon" size={20} />
+                        <input className="luxury-input" placeholder="NIC, Phone or Name..." />
+                    </div>
+                    <button className="luxury-search-btn"><Search size={18} /><span>Find</span></button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- NOTIFICATIONS ---
+function ReceptionNotifications() {
+    const alerts = [
+        { id: 1, type: 'urgent', title: 'OPD Closing Date', message: 'The facility will be closed on the 14th for the holiday. Inform visiting patients.', time: '10 mins ago' },
+        { id: 2, type: 'info', title: 'Appointment Update', message: 'Dr. Wickramasinghe is running 15 mins late.', time: '1 hour ago' }
+    ];
+    return (
+        <div className="portal-container animate-fade-in">
+            <div className="section-header-glass"><h2>Reception Alerts</h2></div>
+            <div className="notification-feed-glass">
+                {alerts.map(n => (
+                    <div key={n.id} className={`notif-card-glass ${n.type}`}>
+                        <div className="notif-accent" />
+                        <div className="notif-body">
+                            <h4>{n.type === 'urgent' && <AlertTriangle size={16} />} {n.title}</h4>
+                            <p>{n.message}</p>
+                            <span className="notif-time">{n.time}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// --- FEEDBACK ---
+function ReceptionFeedback() {
+    return (
+        <div className="portal-container animate-fade-in">
+            <div className="section-header-glass"><MessageSquare size={24} /><h2>System Feedback</h2></div>
+            <div className="card glass-form-card">
+                <div className="stars-row">
+                    {[1, 2, 3, 4, 5].map(num => <Star key={num} size={32} color="#cbd5e1" />)}
+                </div>
+                <textarea className="figma-textarea" placeholder="How is the registration flow working?"></textarea>
+                <button className="primary-btn-large" style={{marginTop: '20px', background: '#3b82f6'}}>Send Feedback</button>
+            </div>
+        </div>
+    );
+}
+
+// --- REGISTRATION PORTAL (TAB CONTENT) ---
+function RegistrationPortal({ patient }) {
+    return (
+        <div className="portal-container animate-fade-in">
+            <div className="portal-header-glass">
+                <div className="patient-mini-card">
+                    <div className="p-avatar-small">{patient.name.charAt(0)}</div>
+                    <div><h4>{patient.name}</h4><span>ID: {patient.id}</span></div>
+                </div>
+            </div>
+            <div className="dashboard-main-grid">
+                <div className="card glass-form-card">
+                    <h3 className="section-title"><Calendar size={18} /> Appointment Details</h3>
+                    <div className="input-group mt-20">
+                        <label>Assign Doctor</label>
+                        <select className="styled-select">
+                            <option>Dr. Wickramasinghe (OPD)</option>
+                            <option>Dr. Perera (Clinic)</option>
+                        </select>
+                    </div>
+                    <button className="primary-btn-large" style={{marginTop: '20px', background: '#10b981'}}>Confirm Arrival</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+

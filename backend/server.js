@@ -34,6 +34,7 @@ const db = mysql.createPool({
 });
 
 // Replace your current pool connection check with this:
+
 db.getConnection((err, connection) => {
     if (err) {
         console.error("❌ DATABASE CONNECTION FAILED:");
@@ -50,7 +51,7 @@ db.getConnection((err, connection) => {
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
-    // 1. Hardcoded Admin Bypass
+    // 1. Admin Bypass
     if (username === 'admin@test.com' && password === 'admin123') {
         return res.json({
             success: true,
@@ -58,22 +59,26 @@ app.post('/api/login', (req, res) => {
         });
     }
 
-    // 2. Fetch User with both Staff and Patient joins
+    // 2. Optimized SQL for your specific schema
     const sql = `
-        SELECT u.user_id, u.username, u.password_hash, u.patient_id, u.staff_id, u.role AS accountRole,
-               s.first_name AS staffFirst, s.surname AS staffSur,
-               p.first_name AS patFirst, p.surname AS patSur, p.barcode, p.phone,
-               r.role_name AS staffRoleName
+        SELECT 
+            u.user_id, u.username, u.password_hash, u.patient_id, u.staff_id,
+            s.full_name AS staffName, 
+            p.full_name AS patName, p.barcode,
+            r.role_name AS staffRole
         FROM user_account u
         LEFT JOIN staff s ON u.staff_id = s.staff_id
         LEFT JOIN patient p ON u.patient_id = p.patient_id
-        LEFT JOIN staff_role sr ON s.staff_id = sr.staff_id
-        LEFT JOIN role r ON sr.role_id = r.role_id
+        LEFT JOIN roles r ON s.role_id = r.role_id
         WHERE u.username = ? OR p.barcode = ?
     `;
 
     db.query(sql, [username, username], async (err, results) => {
-        if (err) return res.status(500).json({ success: false, message: "Database error" });
+        if (err) {
+            console.error("DB Error:", err); 
+            return res.status(500).json({ success: false, message: "Database query failed" });
+        }
+        
         if (results.length === 0) return res.json({ success: false, message: "User not found" });
 
         const user = results[0];
@@ -83,26 +88,17 @@ app.post('/api/login', (req, res) => {
             const isMatch = await bcrypt.compare(password, user.password_hash);
             if (!isMatch) return res.json({ success: false, message: "Invalid credentials" });
 
-            // 4. Resolve Identity (Prioritize Staff Name for display)
-            const displayName = user.staff_id 
-                ? `${user.staffFirst} ${user.staffSur}` 
-                : `${user.patFirst} ${user.patSur}`;
-
-            // 5. Aggregate ALL Roles
+            // 4. Resolve Name and Roles
+            const displayName = user.staff_id ? user.staffName : user.patName;
+            
             const roles = [];
-            
-            // Add specific staff role (Doctor/Receptionist/etc)
-            if (user.staff_id) {
-                const sRole = user.staffRoleName || user.accountRole;
-                if (sRole) roles.push(sRole.toLowerCase());
+            if (user.staff_id && user.staffRole) {
+                roles.push(user.staffRole.toLowerCase());
             }
-            
-            // Add patient role if linked
             if (user.patient_id) {
                 roles.push('patient');
             }
 
-            // 6. Return standard user object
             res.json({
                 success: true,
                 user: {
@@ -110,17 +106,13 @@ app.post('/api/login', (req, res) => {
                     patientId: user.patient_id,
                     staffId: user.staff_id,
                     name: displayName,
-                    surname: user.staffSur || user.patSur,
                     email: user.username,
-                    username: user.username,
-                    phone: user.phone || '',
-                    roles: roles, // Array: e.g. ['doctor', 'patient']
-                    role: roles[0], // Primary role for legacy frontend support
+                    roles: roles, // e.g., ['doctor'] or ['patient']
                     patCode: user.barcode
                 }
             });
         } catch (bcryptErr) {
-            console.error("Login Error:", bcryptErr);
+            console.error("Bcrypt Error:", bcryptErr);
             res.status(500).json({ success: false, message: "Server error during login" });
         }
     });
@@ -129,6 +121,7 @@ app.post('/api/login', (req, res) => {
 // Add this to server.js
 app.post('/forgot-password', (req, res) => {
     const { email } = req.body;
+    console.log("Attempting password reset for:", email);
 
     const token = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = new Date(Date.now() + 3600000);
@@ -136,25 +129,59 @@ app.post('/forgot-password', (req, res) => {
     const query = "UPDATE user_account SET reset_token = ?, token_expiry = ? WHERE username = ?";
 
     db.query(query, [token, expiry, email], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (result.affectedRows === 0) return res.status(404).json({ message: "User not found" });
+        if (err) {
+            console.error("Database Error:", err); // Look at your terminal!
+            return res.status(500).json({ success: false, error: err.message });
+        }
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
 
-        // Email Configuration
+        // 3. Send Email to the ENTERED email address
         const mailOptions = {
-            from: 'bhagya0913@gmail.com',
-            to: email,
-            subject: 'SmartOPD - Password Reset Code',
-            text: `Your password reset code is: ${token}. This code expires in 1 hour.`
+            from: '"SmartOPD Support" <bhagya0913@gmail.com>',
+            to: email, // This sends it to whoever the user entered in the form
+            subject: 'Your Password Reset Code - SmartOPD',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
+                    <h2 style="color: #2563eb;">SmartOPD Password Reset</h2>
+                    <p>You requested a password reset. Please use the following code:</p>
+                    <h1 style="background: #f3f4f6; padding: 10px; text-align: center; letter-spacing: 5px; color: #1e40af;">
+                        ${token}
+                    </h1>
+                    <p>This code will expire in <strong>1 hour</strong>.</p>
+                    <hr />
+                    <p style="font-size: 0.8rem; color: #6b7280;">If you did not request this, please ignore this email.</p>
+                </div>
+            `
         };
-
-        // Send the actual email
         transporter.sendMail(mailOptions, (error, info) => {
             if (error) {
-                console.log(error);
+                console.error("Mail Error:", error); // This is likely where it fails
                 return res.status(500).json({ success: false, message: "Email failed to send" });
             }
+            console.log("Email sent to: " + email);
             res.json({ success: true, message: "Code sent to your email!" });
         });
+    });
+});
+
+app.post('/verify-token', (req, res) => {
+    const { email, token } = req.body;
+
+    const query = `
+        SELECT * FROM user_account 
+        WHERE username = ? AND reset_token = ? AND token_expiry > NOW()`;
+
+    db.query(query, [email, token], (err, result) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        
+        if (result.length > 0) {
+            res.json({ success: true, message: "Token verified!" });
+        } else {
+            res.status(400).json({ success: false, message: "Invalid or expired code." });
+        }
     });
 });
 
@@ -225,14 +252,15 @@ app.post('/api/update-profile-full', (req, res) => {
 });
 
 // server.js - Registration Route
+// server.js - Registration Route
 app.post('/api/register', async (req, res) => {
-    const { first_name, surname, nic, dob, email, phone, gender, password, isFamilyMember } = req.body;
+    // 1. Destructure full_name instead of first/surname
+    const { full_name, nic, dob, email, phone, gender, password, isFamilyMember } = req.body;
 
     db.getConnection(async (err, connection) => {
         if (err) return res.status(500).json({ success: false, message: "Database connection failed" });
 
         try {
-            // 1. Start a transaction to ensure both inserts work or none work
             await connection.promise().beginTransaction();
 
             // 2. CHECK FOR DUPLICATE EMAIL
@@ -240,23 +268,21 @@ app.post('/api/register', async (req, res) => {
                 "SELECT patient_id FROM patient WHERE email = ?", [email]
             );
 
-            // If email exists and it's NOT from the Family Management section, block it
             if (existingPatients.length > 0 && !isFamilyMember) {
                 connection.release();
                 return res.status(400).json({
                     success: false,
-                    message: "This email is already registered. If you are a family member, please register through the Family Management section in the dashboard."
+                    message: "This email is already registered. Family members should be added via the dashboard."
                 });
             }
 
-            // 3. Insert into Patient Table
+            // 3. Insert into Patient Table (Updated SQL to use full_name)
             const barcode = "PAT-" + Date.now();
-            const sqlPatient = "INSERT INTO patient (first_name, surname, nic, dob, email, phone, gender, barcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            const sqlPatient = "INSERT INTO patient (full_name, nic, dob, email, phone, gender, barcode) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
             const [patientResult] = await connection.promise().query(sqlPatient, [
-                first_name,
-                surname,
-                nic || `DEP-${Date.now()}`, // Fallback for children without NIC
+                full_name,         // Single variable now
+                nic || `DEP-${Date.now()}`, 
                 dob,
                 email,
                 phone || '',
@@ -272,27 +298,20 @@ app.post('/api/register', async (req, res) => {
             );
 
             if (userExists.length === 0) {
-                // This is the FIRST person using this email (The Parent/Primary User)
                 const hashedPassword = await bcrypt.hash(password, 10);
                 await connection.promise().query(
                     "INSERT INTO user_account (username, password_hash, patient_id) VALUES (?, ?, ?)",
                     [email, hashedPassword, newPatientId]
                 );
-                console.log("Primary User Account Created.");
-            } else {
-                // This is a family member. We do NOT create a new user_account.
-                // They just exist in the 'patient' table linked by email.
-                console.log("Family member profile linked to existing account.");
             }
 
-            // 5. Commit Transaction
             await connection.promise().commit();
             connection.release();
 
             res.json({
                 success: true,
                 barcode: barcode,
-                message: isFamilyMember ? "Family member added!" : "Registration successful!"
+                message: isFamilyMember ? "Family profile added!" : "Registration successful!"
             });
 
         } catch (error) {
@@ -314,8 +333,7 @@ app.get('/api/family-members', (req, res) => {
     const query = `
         SELECT 
             p.patient_id, 
-            p.first_name, 
-            p.surname, 
+            p.full_name,
             p.barcode, 
             p.gender, 
             p.dob,
@@ -629,28 +647,25 @@ app.get('/api/doctor/search-patient', (req, res) => {
         return res.status(400).json({ success: false, message: "No search term provided" });
     }
 
-    // We check NIC, the Auto-Increment ID, and the Barcode
+    // Using %term% allows for partial matches and avoids strict type errors in some SQL modes
     const sql = `
         SELECT * FROM patient 
         WHERE nic = ? 
         OR patient_id = ? 
         OR barcode = ?
+        LIMIT 1
     `;
 
-    // Passing 'term' 3 times to fill the 3 '?' in the query
     db.query(sql, [term, term, term], (err, results) => {
         if (err) {
             console.error("Database Error:", err);
-            return res.status(500).json({ success: false, message: "Database error occurred" });
+            return res.status(500).json({ success: false, message: "Database error" });
         }
 
         if (results.length > 0) {
-            // Patient found!
             res.json({ success: true, patient: results[0] });
         } else {
-            // Log this to your console to see what failed
-            console.log(`Search failed for term: "${term}"`);
-            res.json({ success: false, message: "Patient not found in system" });
+            res.json({ success: false, message: "No patient record found for this ID" });
         }
     });
 });
@@ -744,12 +759,6 @@ app.post('/api/doctor/create-referral', (req, res) => {
         res.json({ success: true });
     });
 });
-
-// Updated Listen
-// const PORT = process.env.PORT || 5001;
-// app.listen(PORT, () => {
-// console.log(`Server running on port ${PORT}`);
-//});
 
 // 1. Get Pending Prescriptions for a patient
 app.get('/api/pharmacist/pending-prescriptions', (req, res) => {

@@ -6,8 +6,7 @@ import './Register.css';
 export default function Register() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        first_name: '',
-        surname: '',
+        full_name: '',
         nic: '',
         dob: '',
         phone: '',
@@ -30,7 +29,7 @@ export default function Register() {
             return;
         }
 
-        if (!formData.first_name || !formData.surname || !formData.email || !formData.nic) {
+        if (!formData.full_name || !formData.email || !formData.nic) {
             alert("Please fill in all required fields");
             return;
         }
@@ -41,8 +40,7 @@ export default function Register() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    first_name: formData.first_name,
-                    surname: formData.surname,
+                    full_name: formData.full_name,
                     nic: formData.nic,
                     dob: formData.dob,
                     gender: formData.gender,
@@ -71,7 +69,7 @@ export default function Register() {
     };
 
     return (
-        <div className="register-screen">
+        <div className="register-screen" style={{ backgroundImage: "url('/background.jpg')" }}>
             <div className="register-container">
                 <div className="reg-brand">
                     <div className="reg-logo-box">
@@ -86,37 +84,19 @@ export default function Register() {
 
                     <form onSubmit={handleSubmit}>
                         <div className="reg-form-grid">
-                            <div className="input-group">
-                                <div className="input-block">
-                                    <label className="input-label">First Name</label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={20} />
-                                        <input
-                                            type="text"
-                                            name="first_name"
-                                            value={formData.first_name}
-                                            onChange={handleChange}
-                                            placeholder="First name"
-                                            className="reg-input"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="input-block">
-                                    <label className="input-label">Surname</label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={20} />
-                                        <input
-                                            type="text"
-                                            name="surname"
-                                            value={formData.surname}
-                                            onChange={handleChange}
-                                            placeholder="Surname"
-                                            className="reg-input"
-                                            required
-                                        />
-                                    </div>
+                            <div className="input-block">
+                                <label className="input-label">Full Name</label>
+                                <div className="input-wrapper">
+                                    <User className="input-icon" size={20} />
+                                    <input
+                                        type="text"
+                                        name="full_name"
+                                        value={formData.full_name}
+                                        onChange={handleChange}
+                                        placeholder="Enter your full name as per NIC"
+                                        className="reg-input"
+                                        required
+                                    />
                                 </div>
                             </div>
 
