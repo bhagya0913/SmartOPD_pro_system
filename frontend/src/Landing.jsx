@@ -2,47 +2,38 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Calendar, Clock, FileText, Users, Phone, MapPin, Mail } from 'lucide-react';
 import './Landing.css';
+
 export default function Landing() {
     const navigate = useNavigate();
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+        <div className="min-h-screen">
             {/* Header */}
-            <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <header>
+                <div className="max-w-7xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                            <div className="logo-container">
                                 <Activity className="w-7 h-7 text-white" />
                             </div>
-
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900">SmartOPD</h1>
-                                <p className="text-sm text-gray-600">Base Hospital, Kiribathgoda</p>
+                            <div className="logo-text">
+                                <h1>SmartOPD</h1>
+                                <p>Base Hospital, Kiribathgoda</p>
                             </div>
                         </div>
 
-                        <div className="text-center mb-12">
-                            <h2 className="text-4xl font-bold text-gray-900 leading-tight">
-                                Welcome to SmartOPD
-                            </h2>
-                            {/* Using a span with a top margin gives you total control */}
-                            <span className="block text-xl text-gray-600 mt-1 typewriter-text">
-                                Modern Out-Patient Department Management Service
-                            </span>
-                        </div>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => navigate('/login')}
-                                className="px-6 py-2.5 text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors"
+                                className="btn btn-outline"
                             >
                                 Login
                             </button>
                             <button
                                 onClick={() => navigate('/register')}
-                                className="px-6 py-2.5 bg-blue-500 text-white font-medium hover:bg-blue-600 rounded-lg transition-colors shadow-sm"
+                                className="btn btn-primary"
                             >
-                                Register
+                                Register Patient
                             </button>
                         </div>
                     </div>
@@ -50,79 +41,85 @@ export default function Landing() {
             </header>
 
             {/* Hero Section */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-
+            <main className="max-w-7xl mx-auto px-4 py-16 w-full">
+                <div className="text-center mb-12">
+                    <h2 className="hero-title">
+                        SmartOPD System
+                    </h2>
+                    <p className="hero-subtitle">
+                        Experience a seamless healthcare journey. Book appointments, and access your medical records instantly.
+                    </p>
+                </div>
 
                 {/* Services Grid */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                            <Calendar className="w-6 h-6 text-blue-600" />
+                <div className="services-grid">
+                    <div className="glass-card">
+                        <div className="icon-box blue">
+                            <Calendar className="w-6 h-6" />
                         </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Book Appointments</h3>
-                        <p className="text-gray-600 text-sm">Schedule your OPD appointments online and avoid long queues</p>
+                        <h3 className="card-title">Book Appointments</h3>
+                        <p className="card-desc">Schedule your OPD appointments online anytime, anywhere. Skip the early morning queues.</p>
                     </div>
 
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                            <Clock className="w-6 h-6 text-green-600" />
+                    <div className="glass-card">
+                        <div className="icon-box green">
+                            <Clock className="w-6 h-6" />
                         </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Queue Management</h3>
-                        <p className="text-gray-600 text-sm">View your queue number and estimated waiting time in real-time</p>
+                        <h3 className="card-title">Patient Portal</h3>
+                        <p className="card-desc">Access your personal dashboard to view appointments, medical records, and manage your healthcare easily.</p>
                     </div>
 
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                            <FileText className="w-6 h-6 text-purple-600" />
+                    <div className="glass-card">
+                        <div className="icon-box purple">
+                            <FileText className="w-6 h-6" />
                         </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Digital Records</h3>
-                        <p className="text-gray-600 text-sm">Access your medical records, prescriptions and lab results online</p>
+                        <h3 className="card-title">Digital Records</h3>
+                        <p className="card-desc">Securely access your medical history, prescriptions, and lab reports from your dashboard.</p>
                     </div>
 
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-                            <Users className="w-6 h-6 text-orange-600" />
+                    <div className="glass-card">
+                        <div className="icon-box orange">
+                            <Users className="w-6 h-6" />
                         </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Multi-Role Access</h3>
-                        <p className="text-gray-600 text-sm">Secure access for patients, doctors, staff and administrators</p>
+                        <h3 className="card-title">Staff Portal</h3>
+                        <p className="card-desc">Dedicated high-performance interface for Doctors, Pharmacists, and Hospital Staff.</p>
                     </div>
                 </div>
 
-                {/* Hospital Info */}
-                <div className="bg-white rounded-xl shadow-sm p-8">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-6">Hospital Information</h3>
-                    <div className="grid md:grid-cols-3 gap-6">
-                        <div className="flex items-start gap-3">
+                {/* Hospital Information */}
+                <div className="info-section">
+                    <h3 className="text-2xl font-bold mb-2 border-b pb-4">Contact Information</h3>
+                    <p className="text-text-muted mb-6" style={{ color: 'var(--text-muted)' }}>Get in touch with us anytime</p>
+                    <div className="info-grid">
+                        <div className="info-item">
                             <MapPin className="w-5 h-5 text-blue-600 mt-1" />
-                            <div>
-                                <h4 className="font-semibold text-gray-900 mb-1">Address</h4>
-                                <p className="text-gray-600">Makola Road, Kiribathgoda<br />Sri Lanka</p>
+                            <div className="info-content">
+                                <h4>Address</h4>
+                                <p>Makola Road, Kiribathgoda<br />Sri Lanka</p>
                             </div>
                         </div>
-                        <div className="flex items-start gap-3">
+                        <div className="info-item">
                             <Phone className="w-5 h-5 text-blue-600 mt-1" />
-                            <div>
-                                <h4 className="font-semibold text-gray-900 mb-1">Contact</h4>
-                                <p className="text-gray-600">+94 11 291 1261<br />Emergency: 1990</p>
+                            <div className="info-content">
+                                <h4>Emergency & General</h4>
+                                <p>+94 11 291 1261<br />Emergency: 1990</p>
                             </div>
                         </div>
-                        <div className="flex items-start gap-3">
+                        <div className="info-item">
                             <Mail className="w-5 h-5 text-blue-600 mt-1" />
-                            <div>
-                                <h4 className="font-semibold text-gray-900 mb-1">Email</h4>
-                                <p className="text-gray-600">info@kiribathgoda.health.gov.lk</p>
+                            <div className="info-content">
+                                <h4>Email Support</h4>
+                                <p>info@kiribathgoda.health.gov.lk</p>
                             </div>
                         </div>
                     </div>
                 </div>
-            </section>
+            </main>
 
             {/* Footer */}
-            <footer className="bg-white border-t mt-16">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <p className="text-center text-gray-600">
-                        © 2026 SmartOPD - Base Hospital, Kiribathgoda. All rights reserved.
-                    </p>
+            <footer>
+                <div className="max-w-7xl mx-auto px-4">
+                    <p>© 2026 SmartOPD System - Base Hospital, Kiribathgoda. All rights reserved.</p>
                 </div>
             </footer>
         </div>

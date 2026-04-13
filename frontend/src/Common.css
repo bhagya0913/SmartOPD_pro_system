@@ -1,0 +1,456 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SMARTOPD — common.css
+   Base Hospital, Kiribathgoda | OPD Management System
+   Import this FIRST in every dashboard & page JSX.
+
+   Contains ONLY classes used in 2+ JSX files:
+   · input-block, input-label, input-wrapper, input-icon, reg-input
+   · modal-overlay, modal-box, modal-close-btn, otp-box, btn-verify-otp
+   · barcode-* classes, btn-go-login
+   · contact-method-toggle, toggle-*, password-strength, strength-*
+   · auth-page, auth-card, btn-reg-action, reg-footer, reg-link-btn
+   · page-header, page-title, page-subtitle, page-header-icon
+   · form-card, form-card-title, form-row-2, form-group, custom-input, input-label
+   · primary-btn, btn-spinner
+   · appt-badge, token-chip, cards-list, content-card, info-row-2, info-cell
+   · table-wrap, data-table, table-empty, mono-text
+   · section-divider, avg-badge, success-banner, info-alert, empty-state
+   · rx-pre, spinner, adm-toast
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; }
+body { font-family: 'DM Sans', sans-serif; color: #0f172a; line-height: 1.5; }
+button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
+input, select, textarea { font-family: 'DM Sans', sans-serif; }
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+    --blue:       #2563eb;  --blue-2:    #1d4ed8;
+    --blue-lt:    #eff6ff;  --blue-mid:  #bfdbfe;
+    --teal:       #0d9488;  --teal-lt:   #f0fdfa;
+    --green:      #16a34a;  --green-lt:  #f0fdf4;
+    --amber:      #d97706;  --amber-lt:  #fffbeb;
+    --red:        #dc2626;  --red-lt:    #fef2f2;
+    --purple:     #7c3aed;  --purple-lt: #f5f3ff;
+    --surface:    #f8fafc;  --surface-2: #f1f5f9;
+    --border:     #e2e8f0;  --border-2:  #cbd5e1;
+    --text-1:     #0f172a;  --text-2:    #334155;
+    --text-3:     #64748b;  --text-4:    #94a3b8;
+    --shadow-sm:  0 1px 3px rgba(13,31,60,.07), 0 2px 8px rgba(13,31,60,.04);
+    --shadow-md:  0 4px 16px rgba(13,31,60,.10), 0 1px 4px rgba(13,31,60,.05);
+    --shadow-lg:  0 8px 32px rgba(13,31,60,.14);
+    --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+}
+
+/* ── Page background ───────────────────────────────────────────────────────── */
+body {
+    background:
+        radial-gradient(ellipse 70% 55% at 12% 20%, rgba(37,99,235,.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 60% at 88% 80%, rgba(13,148,136,.06) 0%, transparent 55%),
+        #f4f8fd;
+    min-height: 100vh;
+}
+
+/* ── Shared animations ─────────────────────────────────────────────────────── */
+@keyframes opd-spin  { to { transform: rotate(360deg); } }
+@keyframes opd-fade  { from { opacity:0; } to { opacity:1; } }
+@keyframes opd-up    { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+@keyframes opd-pulse { 0%,100%{box-shadow:0 0 0 3px rgba(22,163,74,.15);} 50%{box-shadow:0 0 0 7px rgba(22,163,74,.04);} }
+@keyframes card-enter { from{opacity:0;transform:translateY(22px) scale(.97);} to{opacity:1;transform:translateY(0) scale(1);} }
+
+/* spin utility used across dashboards */
+.spin { animation: opd-spin .7s linear infinite; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TOAST  — used by AdminDashboard.jsx (adm-toast-*)
+   ══════════════════════════════════════════════════════════════════════════════ */
+.adm-toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+    padding: 12px 20px; border-radius: var(--r-md);
+    font-size: .875rem; font-weight: 600;
+    box-shadow: var(--shadow-lg);
+    opacity: 0; transform: translateY(10px);
+    transition: all .28s ease; max-width: 360px;
+}
+.adm-toast.show    { opacity:1; transform:translateY(0); }
+.adm-toast-success { background:var(--green-lt); border:1px solid #bbf7d0; color:#15803d; }
+.adm-toast-error   { background:var(--red-lt);   border:1px solid #fca5a5; color:var(--red); }
+.adm-toast-info    { background:var(--blue-lt);  border:1px solid var(--blue-mid); color:#1e40af; }
+.adm-toast-warning { background:var(--amber-lt); border:1px solid #fde68a; color:#92400e; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   AUTH PAGES  — Login.jsx  Register.jsx  ForgotPassword.jsx
+   ══════════════════════════════════════════════════════════════════════════════ */
+.auth-page {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    background:
+        radial-gradient(ellipse 70% 55% at 20% 30%, rgba(37,99,235,.10) 0%, transparent 58%),
+        radial-gradient(ellipse 60% 65% at 80% 75%, rgba(13,148,136,.09) 0%, transparent 55%),
+        linear-gradient(150deg, #eef4ff 0%, #f4f8fd 45%, #f0fdf9 100%);
+    background-attachment: fixed; position: relative;
+}
+/* subtle medical-cross watermark */
+.auth-page::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect x='32' y='8' width='16' height='64' rx='4' fill='%232563eb' opacity='.03'/%3E%3Crect x='8' y='32' width='64' height='16' rx='4' fill='%232563eb' opacity='.03'/%3E%3C/svg%3E");
+    background-size: 80px 80px;
+}
+.auth-card {
+    position: relative; z-index: 1;
+    background: rgba(255,255,255,.93);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,.7);
+    padding: 40px 44px; border-radius: var(--r-lg);
+    width: 100%; max-width: 520px;
+    box-shadow: 0 0 0 1px rgba(37,99,235,.05), var(--shadow-lg);
+    animation: card-enter .4s cubic-bezier(.22,.68,0,1.2);
+}
+.auth-card-wide { max-width: 800px; }
+
+/* ── Shared input block (Register.jsx + auth pages) ────────────────────────── */
+.input-block   { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+.input-label   { font-size:.78rem; font-weight:700; color:var(--text-2); }
+.input-wrapper { position:relative; }
+.input-icon {
+    position:absolute; left:13px; top:50%; transform:translateY(-50%);
+    color:var(--text-4); pointer-events:none;
+}
+.reg-input {
+    width:100%; padding:11px 13px 11px 42px;
+    border:1.5px solid var(--border); border-radius:var(--r-sm);
+    font-size:.9rem; color:var(--text-1);
+    background:rgba(248,250,252,.8); outline:none;
+    transition:border .18s, box-shadow .18s, background .18s;
+}
+.reg-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.12); background:white; }
+.reg-textarea   { resize:vertical; min-height:80px; padding-top:.6rem; padding-left:2.5rem; line-height:1.5; }
+.reg-eye-icon {
+    position:absolute; right:11px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--text-4);
+    display:flex; align-items:center; cursor:pointer; transition:color .15s;
+}
+.reg-eye-icon:hover { color:var(--text-2); }
+
+/* ── Auth submit button ─────────────────────────────────────────────────────── */
+.btn-reg-action {
+    width:100%; padding:13px;
+    background:linear-gradient(135deg,var(--blue),var(--blue-2));
+    color:white; border:none; border-radius:var(--r-sm);
+    font-size:.95rem; font-weight:800;
+    box-shadow:0 4px 16px rgba(37,99,235,.35); transition:all .18s;
+    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:8px;
+}
+.btn-reg-action:hover:not(:disabled) { background:linear-gradient(135deg,var(--blue-2),#1a3fad); transform:translateY(-1px); }
+.btn-reg-action:disabled { background:#93c5fd; cursor:not-allowed; box-shadow:none; }
+.reg-footer   { text-align:center; margin-top:18px; font-size:.84rem; color:var(--text-3); }
+.reg-link-btn { background:none; border:none; color:var(--blue); font-weight:700; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.optional-tag { font-size:.72rem; color:var(--text-4); font-weight:400; margin-left:4px; }
+
+/* ── Contact method toggle (Register.jsx) ───────────────────────────────────── */
+.contact-method-toggle { margin-bottom:1.5rem; padding:1rem; background:#f0f7ff; border-radius:10px; border:1px solid var(--blue-mid); }
+.toggle-label   { font-size:.85rem; font-weight:700; color:var(--text-2); margin:0 0 .5rem; }
+.toggle-buttons { display:flex; gap:.5rem; }
+.toggle-btn {
+    flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:.6rem 1rem; border:2px solid var(--border); border-radius:var(--r-sm);
+    background:white; color:var(--text-3); font-size:.875rem; font-weight:500; cursor:pointer; transition:all .18s;
+}
+.toggle-btn:hover { border-color:var(--blue); color:var(--blue); }
+.toggle-active  { background:var(--blue)!important; border-color:var(--blue)!important; color:white!important; box-shadow:0 2px 8px rgba(37,99,235,.3); }
+.toggle-hint    { font-size:.78rem; color:var(--text-3); margin:.5rem 0 0; }
+
+/* ── Password strength (Register.jsx) ───────────────────────────────────────── */
+.password-strength { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.strength-bars  { display:flex; gap:4px; flex:1; }
+.strength-bar   { height:4px; border-radius:2px; flex:1; background:#e5e7eb; }
+.strength-label { font-size:.75rem; font-weight:700; min-width:70px; text-align:right; }
+.strength-hint  { font-size:.72rem; color:var(--text-3); margin-top:4px; }
+
+/* ── OTP modal (Register.jsx + ForgotPassword.jsx) ─────────────────────────── */
+.modal-overlay {
+    position:fixed; inset:0; background:rgba(13,31,60,.5); backdrop-filter:blur(5px);
+    z-index:1000; display:flex; align-items:center; justify-content:center;
+    animation:opd-fade .2s ease; padding:20px;
+}
+.modal-box {
+    background:white; border-radius:var(--r-lg);
+    width:480px; max-width:100%; max-height:90vh; overflow-y:auto;
+    padding:32px; box-shadow:0 24px 64px rgba(13,31,60,.25);
+    animation:opd-up .25s ease; position:relative;
+}
+.otp-modal { max-width:420px; text-align:center; }
+.modal-close-btn {
+    position:absolute; top:14px; right:14px;
+    width:32px; height:32px; border-radius:var(--r-sm);
+    background:var(--surface-2); border:none; color:#475569;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s;
+}
+.modal-close-btn:hover { background:var(--border); color:var(--text-1); }
+.modal-icon-ring {
+    width:72px; height:72px; background:var(--blue-lt);
+    border-radius:50%; border:3px solid var(--blue-mid);
+    display:flex; align-items:center; justify-content:center; margin:0 auto 16px;
+}
+.modal-title    { font-size:1.2rem; font-weight:800; color:var(--text-1); margin:0 0 8px; }
+.modal-subtitle { font-size:.88rem; color:var(--text-3); margin:0 0 20px; line-height:1.6; }
+.modal-subtitle strong { color:#1e40af; }
+.otp-input-row  { display:flex; gap:10px; justify-content:center; margin-bottom:20px; }
+.otp-box {
+    width:48px; height:56px; border:2px solid var(--border);
+    border-radius:var(--r-sm); text-align:center;
+    font-size:1.4rem; font-weight:800; color:var(--blue);
+    background:var(--surface); outline:none;
+    transition:border .18s, box-shadow .18s;
+}
+.otp-box:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.15); background:white; }
+.btn-verify-otp {
+    width:100%; padding:.9rem; background:var(--blue); color:white;
+    border:none; border-radius:var(--r-sm); font-size:1rem; font-weight:700;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:background .18s, transform .1s; margin-bottom:12px;
+}
+.btn-verify-otp:hover:not(:disabled) { background:var(--blue-2); }
+.btn-verify-otp:disabled { background:#93c5fd; cursor:not-allowed; }
+.modal-resend { font-size:.82rem; color:var(--text-3); }
+.resend-link  { background:none; border:none; color:var(--blue); font-size:.82rem; font-weight:700; cursor:pointer; text-decoration:underline; }
+.resend-link:disabled { color:#93c5fd; cursor:not-allowed; }
+
+/* ── Barcode success modal (Register.jsx) ───────────────────────────────────── */
+.barcode-modal      { max-width:460px; }
+.barcode-info-card  { background:var(--green-lt); border:1px solid #bbf7d0; border-radius:10px; padding:.75rem 1rem; margin-bottom:1.25rem; }
+.barcode-info-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); margin:0 0 4px; }
+.barcode-patient-id { font-size:1.4rem; font-weight:800; color:#065f46; letter-spacing:2px; margin:0; }
+.barcode-display    { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1rem; margin-bottom:1rem; }
+.barcode-visual     { display:flex; align-items:center; justify-content:center; gap:2px; padding:8px; background:white; border-radius:6px; margin-bottom:8px; min-height:60px; overflow:hidden; }
+.barcode-bar        { display:inline-block; border-radius:1px; }
+.barcode-value      { font-size:.75rem; font-family:monospace; color:#475569; letter-spacing:2px; margin:0; text-align:center; }
+.barcode-note       { font-size:.8rem; color:#92400e; background:var(--amber-lt); border:1px solid #fde68a; border-radius:8px; padding:.6rem .9rem; margin-bottom:1.25rem; }
+.barcode-success-icon { margin:0 auto 1rem; }
+.btn-go-login       { width:100%; padding:.85rem; background:var(--green); color:white; border:none; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; transition:background .18s; }
+.btn-go-login:hover { background:#059669; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PAGE HEADER  — used by PatientDashboard.jsx sections
+   ══════════════════════════════════════════════════════════════════════════════ */
+.page-header { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+.page-header-icon {
+    width:44px; height:44px; border-radius:var(--r-md);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    box-shadow:0 4px 12px rgba(37,99,235,.25);
+}
+.page-title    { font-size:1.35rem; font-weight:800; color:var(--text-1); letter-spacing:-.02em; margin:0; }
+.page-subtitle { font-size:.82rem; color:var(--text-3); margin:3px 0 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   FORM CARD  — used by PatientDashboard.jsx + ReceptionistDashboard.jsx
+   ══════════════════════════════════════════════════════════════════════════════ */
+.form-card {
+    background:white; border:1px solid var(--border);
+    border-radius:var(--r-md); padding:22px 24px;
+    box-shadow:var(--shadow-sm); margin-bottom:24px;
+}
+.form-card-title {
+    font-size:.88rem; font-weight:800; color:var(--text-1);
+    text-transform:uppercase; letter-spacing:.04em;
+    margin:0 0 16px; padding-bottom:12px; border-bottom:1px solid var(--surface-2);
+}
+.form-row-2  { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px; }
+.form-group  { display:flex; flex-direction:column; gap:5px; }
+.form-group.wide { grid-column:1/-1; }
+.input-label { font-size:.78rem; font-weight:700; color:var(--text-2); }
+.custom-input {
+    padding:10px 13px; border:1.5px solid var(--border);
+    border-radius:var(--r-sm); font-size:.875rem; color:var(--text-1);
+    background:var(--surface); outline:none; width:100%;
+    transition:border .18s, box-shadow .18s;
+}
+.custom-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.1); background:white; }
+select.custom-input { cursor:pointer; }
+.custom-input.textarea { resize:vertical; line-height:1.6; min-height:80px; }
+
+/* ── Shared primary button ──────────────────────────────────────────────────── */
+.primary-btn {
+    display:inline-flex; align-items:center; gap:7px;
+    padding:11px 22px;
+    background:linear-gradient(135deg,var(--blue),var(--blue-2));
+    color:white; border:none; border-radius:9px;
+    font-size:.875rem; font-weight:700;
+    box-shadow:0 3px 12px rgba(37,99,235,.32); transition:all .18s; margin-top:4px;
+}
+.primary-btn:hover:not(:disabled) { background:linear-gradient(135deg,var(--blue-2),#1a3fad); transform:translateY(-1px); box-shadow:0 5px 18px rgba(37,99,235,.42); }
+.primary-btn:active:not(:disabled){ transform:scale(.99); }
+.primary-btn:disabled { background:#93c5fd; cursor:not-allowed; box-shadow:none; transform:none; }
+.btn-spinner {
+    width:13px; height:13px;
+    border:2px solid rgba(255,255,255,.35); border-top-color:white;
+    border-radius:50%; animation:opd-spin .6s linear infinite; flex-shrink:0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SHARED CONTENT BLOCKS
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Appointment badge — used in Patient + Receptionist JSX */
+.appt-badge {
+    display:inline-block; padding:3px 10px; border-radius:20px;
+    font-size:.67rem; font-weight:800; letter-spacing:.04em; white-space:nowrap;
+}
+.appt-badge.booked    { background:var(--blue-lt);   color:var(--blue); }
+.appt-badge.completed { background:var(--green-lt);  color:var(--green); }
+.appt-badge.cancelled { background:var(--surface-2); color:var(--text-4); }
+.appt-badge.active    { background:var(--green-lt);  color:var(--green); }
+.appt-badge.no_show   { background:var(--amber-lt);  color:#92400e; }
+
+/* Token chip */
+.token-chip {
+    display:inline-block; padding:3px 9px;
+    background:var(--blue-lt); border:1px solid var(--blue-mid);
+    border-radius:7px; font-family:'DM Mono',monospace;
+    font-size:.8rem; font-weight:700; color:var(--blue);
+}
+
+/* Cards list */
+.cards-list { display:flex; flex-direction:column; gap:14px; }
+.content-card {
+    background:white; border:1px solid var(--border);
+    border-radius:var(--r-md); padding:18px;
+    box-shadow:var(--shadow-sm); transition:box-shadow .18s;
+}
+.content-card:hover { box-shadow:var(--shadow-md); }
+.content-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.card-title    { font-size:.92rem; font-weight:700; color:var(--text-1); margin:3px 0 0; }
+.card-meta     { font-size:.72rem; color:var(--text-4); font-weight:600; }
+.card-meta-row { display:flex; gap:10px; margin-top:5px; }
+.card-meta-row span { display:flex; align-items:center; gap:4px; font-size:.72rem; color:var(--text-4); }
+
+/* Info row 2-col */
+.info-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
+.info-cell  { display:flex; flex-direction:column; gap:2px; }
+.info-cell label { font-size:.67rem; font-weight:700; color:var(--text-4); text-transform:uppercase; letter-spacing:.07em; }
+.info-cell p     { font-size:.84rem; color:var(--text-2); margin:0; }
+.info-cell.wide  { grid-column:1/-1; }
+
+/* Prescription pre */
+.rx-pre {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r-sm); padding:12px 14px;
+    font-family:'DM Mono',monospace; font-size:.8rem; color:var(--text-2);
+    white-space:pre-wrap; word-break:break-word; margin:0; line-height:1.6;
+}
+
+/* Table */
+.table-wrap { overflow-x:auto; border-radius:var(--r-md); border:1px solid var(--border); box-shadow:var(--shadow-sm); }
+.data-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+.data-table th {
+    padding:11px 16px; background:var(--surface);
+    font-size:.68rem; font-weight:800; color:var(--text-3);
+    text-transform:uppercase; letter-spacing:.08em;
+    text-align:left; border-bottom:1px solid var(--border); white-space:nowrap;
+}
+.data-table td { padding:13px 16px; border-bottom:1px solid var(--surface-2); color:var(--text-2); vertical-align:middle; }
+.data-table tbody tr:last-child td { border-bottom:none; }
+.data-table tbody tr:hover td { background:var(--surface); }
+.table-empty { text-align:center; color:var(--text-4); padding:32px!important; }
+.mono-text   { font-family:'DM Mono',monospace; font-size:.78rem; }
+
+/* Section divider */
+.section-divider { display:flex; align-items:center; gap:12px; margin:28px 0 18px; }
+.section-divider::before, .section-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+.section-divider span { font-size:.75rem; font-weight:700; color:var(--text-4); text-transform:uppercase; letter-spacing:.07em; white-space:nowrap; }
+.avg-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    background:var(--amber-lt); border:1px solid #fde68a;
+    color:#92400e; padding:2px 9px; border-radius:20px; font-size:.72rem; font-weight:700;
+}
+
+/* Success banner */
+.success-banner {
+    display:flex; align-items:center; gap:8px;
+    background:var(--green-lt); border:1px solid #bbf7d0;
+    color:#15803d; padding:12px 16px; border-radius:10px;
+    font-size:.84rem; font-weight:600; margin-bottom:20px;
+}
+
+/* Info alert */
+.info-alert {
+    display:flex; align-items:flex-start; gap:10px;
+    background:var(--blue-lt); border:1px solid var(--blue-mid);
+    border-radius:10px; padding:11px 14px;
+    font-size:.82rem; color:#1e40af;
+}
+.info-alert p { margin:0; line-height:1.5; }
+.info-alert strong { font-weight:800; }
+
+/* Empty state */
+.empty-state {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:260px; gap:12px; color:var(--text-4); text-align:center; padding:28px;
+}
+.empty-icon-wrap {
+    width:64px; height:64px; background:var(--surface-2);
+    border-radius:16px; display:flex; align-items:center; justify-content:center;
+    color:var(--text-4); margin-bottom:4px;
+}
+.empty-state h3 { font-size:1rem; font-weight:700; color:#475569; margin:0; }
+.empty-state p  { font-size:.85rem; color:var(--text-4); margin:0; }
+
+/* Shared page-level spinner */
+.spinner {
+    width:32px; height:32px;
+    border:3px solid var(--border); border-top-color:var(--blue);
+    border-radius:50%; animation:opd-spin .7s linear infinite; margin:auto;
+}
+
+/* Result box (lab results) */
+.result-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); padding:11px 14px; margin-top:12px; }
+.result-box label { font-size:.67rem; font-weight:700; color:var(--text-4); text-transform:uppercase; letter-spacing:.07em; display:block; margin-bottom:4px; }
+.result-box p { font-size:.84rem; color:var(--text-2); margin:0; }
+
+/* File download row */
+.file-row { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:.82rem; color:var(--text-3); }
+.file-dl-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 12px; background:var(--blue-lt); color:var(--blue); border-radius:7px; font-size:.78rem; font-weight:700; text-decoration:none; transition:background .15s; }
+.file-dl-btn:hover { background:#dbeafe; }
+
+/* Status pills (lab results) */
+.status-pill { display:inline-block; padding:3px 10px; border-radius:20px; font-size:.68rem; font-weight:800; white-space:nowrap; }
+.status-pill.requested   { background:var(--blue-lt);   color:var(--blue); }
+.status-pill.in_progress { background:var(--amber-lt);  color:#92400e; }
+.status-pill.completed   { background:var(--green-lt);  color:var(--green); }
+.status-pill.cancelled   { background:var(--surface-2); color:var(--text-4); }
+.type-pill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:.68rem; font-weight:700; }
+
+/* Cancel link */
+.cancel-link { background:none; border:none; color:var(--red); font-size:.78rem; font-weight:700; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+
+/* Dispensed row */
+.dispensed-row { display:flex; align-items:center; gap:6px; font-size:.78rem; color:var(--green); font-weight:600; margin-top:10px; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PATIENT LOOKUP MODAL  — PatientLookup.jsx
+   ══════════════════════════════════════════════════════════════════════════════ */
+.lookup-overlay { position:fixed; inset:0; background:rgba(13,31,60,.55); backdrop-filter:blur(4px); z-index:1000; display:flex; align-items:center; justify-content:center; }
+.lookup-modal   { background:white; border-radius:var(--r-lg); width:560px; max-width:95vw; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); }
+.lookup-header  { background:var(--text-1); padding:18px 22px; border-radius:var(--r-lg) var(--r-lg) 0 0; display:flex; align-items:center; justify-content:space-between; }
+.lookup-header h2 { color:white; font-size:1rem; font-weight:800; margin:0; }
+.lookup-content { padding:22px; }
+.toggle-group   { display:flex; gap:8px; margin-bottom:16px; }
+.toggle-inactive { background:var(--surface-2); border:1px solid var(--border); color:var(--text-3); border-radius:var(--r-sm); padding:8px 16px; font-size:.84rem; font-weight:600; }
+.search-row     { display:flex; gap:10px; margin-bottom:12px; }
+.scan-btn       { width:100%; padding:10px; background:var(--blue-lt); border:1.5px dashed var(--blue); border-radius:var(--r-sm); color:var(--blue); font-weight:700; font-size:.84rem; cursor:pointer; margin-bottom:12px; }
+.patient-result-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:background .15s; }
+.patient-result-card:hover { background:var(--blue-lt); }
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width:900px) {
+    .form-row-2 { grid-template-columns:1fr; }
+    .info-row-2 { grid-template-columns:1fr; }
+    .auth-card  { padding:28px 24px; }
+}
+@media (max-width:640px) {
+    .auth-card  { padding:24px 18px; }
+}

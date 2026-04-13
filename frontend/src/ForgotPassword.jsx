@@ -1,133 +1,271 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './ForgotPassword.css'; // Remove Login.css and use this
-
-
+import { Mail, Lock, ShieldCheck, ArrowLeft } from 'lucide-react';
+import toast from 'react-hot-toast';
+import './ForgotPassword.css';
 
 export default function ForgotPassword() {
-    const [email, setEmail] = useState('');
-    const [token, setToken] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [step, setStep] = useState(1); // 1: Email, 2: Token, 3: Reset
-    const navigate = useNavigate();
 
-    const handleRequest = async (e) => {
-        console.log("Sending request for email:", email);
-        if (e) e.preventDefault();
-        if (!email) {
-        alert("Please enter an email address first.");
-        return;
-    }
-        try {
-            const res = await fetch('http://127.0.0.1:5001/forgot-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email })
-            });
-            const data = await res.json();
-            if (data.success) {
-                if (step === 1) setStep(2);
-                alert("Code sent to your email!");
-            } else { alert(data.message); }
-        } catch (err) { alert("Server error"); }
-    };
+const [email,setEmail]=useState('');
+const [token,setToken]=useState('');
+const [newPassword,setNewPassword]=useState('');
+const [confirmPassword,setConfirmPassword]=useState('');
+const [step,setStep]=useState(1);
 
-    const handleVerifyToken = async (e) => {
-    e.preventDefault();
-    if (token.length !== 6) {
-        alert("Please enter a valid 6-digit code.");
-        return;
-    }
+const navigate=useNavigate();
 
-    try {
-        // We call the backend to check if the code matches the email
-        const res = await fetch('http://127.0.0.1:5001/verify-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, token })
-        });
-        const data = await res.json();
 
-        if (data.success) {
-            setStep(3); // Only move to password entry if code is correct
-        } else {
-            alert(data.message || "Invalid or expired code.");
-        }
-    } catch (err) {
-        alert("Verification failed. Please try again.");
-    }
+const handleRequest=async(e)=>{
+e.preventDefault();
+
+try{
+const res=await fetch('http://localhost:5001/api/forgot-password',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({email})
+});
+
+const data=await res.json();
+
+if(data.success){
+setStep(2);
+toast.success("OTP sent to email");
+}else{
+toast.error(data.message);
+}
+
+}catch(err){
+toast.error("Connection failed");
+}
 };
 
-    const handleReset = async (e) => {
-        e.preventDefault();
-        if (newPassword !== confirmPassword) {
-            alert("Passwords do not match!");
-            return;
-        }
-        try {
-            const res = await fetch('http://127.0.0.1:5001/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, token, newPassword })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert("Password Updated! Please login.");
-                navigate('/login');
-            } else { alert(data.message); }
-        } catch (err) { alert("Server error"); }
-    };
 
-    return (
-    <div className="forgot-password-container">
-        <div className="forgot-password-card">
-            {/* Step Indicator Dots */}
-            <div className="step-indicator">
-                <div className={`dot ${step >= 1 ? 'active' : ''}`}></div>
-                <div className={`dot ${step >= 2 ? 'active' : ''}`}></div>
-                <div className={`dot ${step >= 3 ? 'active' : ''}`}></div>
-            </div>
 
-            {step === 1 && (
-                <form onSubmit={handleRequest}>
-                    <h2 className="form-title" >Find Your Account</h2>
-                    <p style={{ textAlign: 'center', color: '#666', marginBottom: '20px' }}>
-                        Enter your email to receive a 6-digit reset code.
-                    </p>
-                    <input type="email" placeholder="email@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" required />
-                    <button type="submit" className="btn-login-action">Send Code</button>
-                </form>
-            )}
+const handleVerifyToken=async(e)=>{
+e.preventDefault();
 
-            {step === 2 && (
-                <form onSubmit={handleVerifyToken}>
-                    <h2 className="form-title">Enter Code</h2>
-                    <p style={{ textAlign: 'center', color: '#666', marginBottom: '20px' }}>
-                        We sent a code to <br/><strong>{email}</strong>
-                    </p>
-                    <input type="text" maxLength="6" placeholder="000000" value={token} onChange={(e) => setToken(e.target.value)} className="form-input token-input" required />
-                    <button type="submit" className="btn-login-action">Verify & Continue</button>
-                    <div className="resend-container">
-                        Didn't get it? <button type="button" onClick={handleRequest} className="resend-btn">Resend Code</button>
-                    </div>
-                </form>
-            )}
+try{
+const res=await fetch('http://localhost:5001/api/verify-token',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({email,token})
+});
 
-            {step === 3 && (
-                <form onSubmit={handleReset}>
-                    <h2 className="form-title">New Password</h2>
-                    <p style={{ textAlign: 'center', color: '#666', marginBottom: '20px' }}>Create a strong password you haven't used before.</p>
-                    <input type="password" placeholder="New Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="form-input" required />
-                    <input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-input" required />
-                    <button type="submit" className="btn-login-action">Reset Password</button>
-                </form>
-            )}
+const data=await res.json();
 
-            <button onClick={() => navigate('/login')} className="back-to-login" style={{border:'none', background:'none', width:'100%'}}>
-                ← Back to Login
-            </button>
-        </div>
-    </div>
+if(data.success){
+setStep(3);
+toast.success("OTP verified");
+}else{
+toast.error(data.message);
+}
+
+}catch(err){
+toast.error("Verification failed");
+}
+};
+
+
+
+const handleReset=async(e)=>{
+e.preventDefault();
+
+if(newPassword!==confirmPassword){
+toast.error("Passwords do not match");
+return;
+}
+
+try{
+
+const res=await fetch('http://localhost:5001/api/reset-password',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({email,token,newPassword})
+});
+
+const data=await res.json();
+
+if(data.success){
+toast.success("Password updated");
+navigate('/login');
+}else{
+toast.error(data.message);
+}
+
+}catch(err){
+toast.error("Server error");
+}
+
+};
+
+
+
+return(
+
+<div className="fp-page">
+
+<div className="fp-card">
+
+{/* Header */}
+<div className="fp-header">
+
+<div className="fp-icon">
+<ShieldCheck size={32}/>
+</div>
+
+<h1>Password Recovery</h1>
+<p>Secure access to your SmartOPD account</p>
+
+</div>
+
+
+{/* Step Progress */}
+
+<div className="fp-steps">
+
+<div className={`step ${step>=1?'active':''}`}>1</div>
+<div className={`line ${step>=2?'active':''}`}></div>
+
+<div className={`step ${step>=2?'active':''}`}>2</div>
+<div className={`line ${step>=3?'active':''}`}></div>
+
+<div className={`step ${step>=3?'active':''}`}>3</div>
+
+</div>
+
+
+
+{/* Step 1 */}
+
+{step===1 &&(
+
+<form onSubmit={handleRequest} className="fp-form">
+
+<h2>Enter your Email</h2>
+
+<div className="fp-input">
+
+<Mail size={18}/>
+
+<input
+type="email"
+placeholder="example@email.com"
+value={email}
+onChange={(e)=>setEmail(e.target.value)}
+required
+/>
+
+</div>
+
+<button className="fp-btn">
+Send Verification Code
+</button>
+
+</form>
+
+)}
+
+
+
+{/* Step 2 */}
+
+{step===2 &&(
+
+<form onSubmit={handleVerifyToken} className="fp-form">
+
+<h2>Email Verification</h2>
+
+<p>Enter the 6 digit code sent to</p>
+<strong>{email}</strong>
+
+<div className="otp-input">
+
+<input maxLength="6"
+value={token}
+onChange={(e)=>setToken(e.target.value)}
+placeholder="------"
+/>
+
+</div>
+
+<button className="fp-btn">
+Verify Code
+</button>
+
+<button
+type="button"
+className="fp-resend"
+onClick={handleRequest}
+>
+Resend Code
+</button>
+
+</form>
+
+)}
+
+
+
+{/* Step 3 */}
+
+{step===3 &&(
+
+<form onSubmit={handleReset} className="fp-form">
+
+<h2>Create New Password</h2>
+
+<div className="fp-input">
+
+<Lock size={18}/>
+
+<input
+type="password"
+placeholder="New Password"
+value={newPassword}
+onChange={(e)=>setNewPassword(e.target.value)}
+required
+/>
+
+</div>
+
+
+<div className="fp-input">
+
+<Lock size={18}/>
+
+<input
+type="password"
+placeholder="Confirm Password"
+value={confirmPassword}
+onChange={(e)=>setConfirmPassword(e.target.value)}
+required
+/>
+
+</div>
+
+
+<button className="fp-btn">
+Update Password
+</button>
+
+</form>
+
+)}
+
+
+<button
+className="fp-back"
+onClick={()=>navigate('/login')}
+>
+
+<ArrowLeft size={16}/>
+Back to Login
+
+</button>
+
+</div>
+</div>
+
 );
+
 }
