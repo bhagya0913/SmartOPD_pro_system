@@ -52,7 +52,7 @@ export default function Landing() {
                 </div>
 
                 {/* Services Grid */}
-                <div className="services-grid">
+                {/*<div className="services-grid">
                     <div className="glass-card">
                         <div className="icon-box blue">
                             <Calendar className="w-6 h-6" />
@@ -84,7 +84,7 @@ export default function Landing() {
                         <h3 className="card-title">Staff Portal</h3>
                         <p className="card-desc">Dedicated high-performance interface for Doctors, Pharmacists, and Hospital Staff.</p>
                     </div>
-                </div>
+                </div>*/}
 
                 {/* Hospital Information */}
                 <div className="info-section">

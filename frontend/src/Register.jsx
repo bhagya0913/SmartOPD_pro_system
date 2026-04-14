@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './Register.css';
-import Barcode from 'react-barcode';  // npm install react-barcode
+import Barcode from 'react-barcode';
 
 // ── Password Strength Helper ──────────────────────────────────────────────────
 function getPasswordStrength(password) {
@@ -25,30 +25,22 @@ function getPasswordStrength(password) {
     return           { score, label: 'Very Strong', color: '#10b981' };
 }
 
-// ── OTP Modal ─────────────────────────────────────────────────────────────────
-function OtpModal({ contactMethod, contactValue, onVerified, onClose, registering }) {
-    const [otp,       setOtp]       = useState('');
-    const [loading,   setLoading]   = useState(false);
+// ── OTP Modal (email only) ───────────────────────────────────────────────────
+function OtpModal({ contactValue, onVerified, onClose, registering }) {
+    const [otp, setOtp] = useState('');
+    const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
 
     const handleVerify = async () => {
         if (otp.length !== 6) return toast.error('Please enter the 6-digit code.');
         setLoading(true);
         try {
-            const endpoint = contactMethod === 'email'
-                ? 'http://localhost:5001/api/verify-registration-otp'
-                : 'http://localhost:5001/api/verify-registration-sms-otp';
-            const body = contactMethod === 'email'
-                ? { email: contactValue, otp }
-                : { phone: contactValue, otp };
-
-            const res  = await fetch(endpoint, {
-                method:  'POST',
+            const res = await fetch('http://localhost:5001/api/verify-registration-otp', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(body)
+                body: JSON.stringify({ email: contactValue, otp })
             });
             const data = await res.json();
-
             if (data.success) {
                 toast.success('Verified successfully!');
                 onVerified();
@@ -65,20 +57,12 @@ function OtpModal({ contactMethod, contactValue, onVerified, onClose, registerin
     const handleResend = async () => {
         setResending(true);
         try {
-            const endpoint = contactMethod === 'email'
-                ? 'http://localhost:5001/api/send-registration-otp'
-                : 'http://localhost:5001/api/send-registration-sms-otp';
-            const body = contactMethod === 'email'
-                ? { email: contactValue }
-                : { phone: contactValue };
-
-            const res  = await fetch(endpoint, {
-                method:  'POST',
+            const res = await fetch('http://localhost:5001/api/send-registration-otp', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(body)
+                body: JSON.stringify({ email: contactValue })
             });
             const data = await res.json();
-
             if (data.success) {
                 toast.success('New code sent!');
                 setOtp('');
@@ -105,9 +89,7 @@ function OtpModal({ contactMethod, contactValue, onVerified, onClose, registerin
                     <ShieldCheck size={36} color="#2563eb" />
                 </div>
 
-                <h3 className="modal-title">
-                    Verify Your {contactMethod === 'email' ? 'Email' : 'Phone'}
-                </h3>
+                <h3 className="modal-title">Verify Your Email</h3>
 
                 <p className="modal-subtitle">
                     We've sent a 6-digit code to<br />
@@ -116,7 +98,7 @@ function OtpModal({ contactMethod, contactValue, onVerified, onClose, registerin
 
                 {!registering && (
                     <div className="otp-input-row">
-                        {[0,1,2,3,4,5].map((i) => (
+                        {[0, 1, 2, 3, 4, 5].map((i) => (
                             <input
                                 key={i}
                                 type="text"
@@ -125,9 +107,9 @@ function OtpModal({ contactMethod, contactValue, onVerified, onClose, registerin
                                 className="otp-box"
                                 value={otp[i] || ''}
                                 onChange={(e) => {
-                                    const val  = e.target.value.replace(/\D/g, '');
-                                    const arr  = otp.split('');
-                                    arr[i]     = val;
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    const arr = otp.split('');
+                                    arr[i] = val;
                                     const next = arr.join('').slice(0, 6);
                                     setOtp(next);
                                     if (val && i < 5) {
@@ -180,7 +162,6 @@ function BarcodeModal({ patientId, barcode, onGoToLogin }) {
     return (
         <div className="modal-overlay">
             <div className="modal-box barcode-modal">
-
                 <div className="barcode-success-icon">
                     <CheckCircle size={52} color="#10b981" />
                 </div>
@@ -192,14 +173,12 @@ function BarcodeModal({ patientId, barcode, onGoToLogin }) {
                     Welcome to SmartOPD. Your account is ready.
                 </p>
 
-                {/* Patient ID */}
                 <div className="barcode-id-card">
                     <p className="barcode-info-label">Your Patient ID</p>
                     <p className="barcode-patient-id">{patientId}</p>
                     <p className="barcode-id-hint">Quote this at reception if barcode is unavailable</p>
                 </div>
 
-                {/* Barcode */}
                 <div className="barcode-display-box">
                     <p className="barcode-info-label" style={{ marginBottom: '14px' }}>Your Patient Barcode</p>
                     <div className="barcode-image-wrap">
@@ -216,7 +195,6 @@ function BarcodeModal({ patientId, barcode, onGoToLogin }) {
                     </div>
                 </div>
 
-                {/* Tip */}
                 <div className="barcode-tip-box">
                     📋 <strong>Screenshot or save this screen.</strong> Show the barcode at hospital reception — the receptionist will scan it to access your records instantly.
                 </div>
@@ -233,41 +211,34 @@ function BarcodeModal({ patientId, barcode, onGoToLogin }) {
     );
 }
 
-// ── Main Register Component ───────────────────────────────────────────────────
+// ── Main Register Component (email only) ──────────────────────────────────────
 export default function Register() {
     const navigate = useNavigate();
 
-    const [contactMethod,       setContactMethod]       = useState('email');
-    const [showPassword,        setShowPassword]        = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [loading,             setLoading]             = useState(false);
-    const [modalState,          setModalState]          = useState(null);  // null | 'otp' | 'barcode'
-    const [registeredData,      setRegisteredData]      = useState({ patientId: '', barcode: '' });
+    const [loading, setLoading] = useState(false);
+    const [modalState, setModalState] = useState(null); // null | 'otp' | 'barcode'
+    const [registeredData, setRegisteredData] = useState({ patientId: '', barcode: '' });
 
     const [formData, setFormData] = useState({
-        full_name:       '',
-        nic:             '',
-        dob:             '',
-        phone:           '',
-        email:           '',
-        gender:          '',
-        address:         '',
-        password:        '',
+        full_name: '',
+        nic: '',
+        dob: '',
+        phone: '',
+        email: '',
+        gender: '',
+        address: '',
+        password: '',
         confirmPassword: ''
     });
 
-    const handleChange       = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleMethodSwitch = (method) => {
-        if (method === contactMethod) return;
-        setContactMethod(method);
-        setFormData((prev) => ({ ...prev, email: '', phone: '' }));
-    };
-
+    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const strength = useMemo(() => getPasswordStrength(formData.password), [formData.password]);
 
-    // ── Validation ────────────────────────────────────────────────────────────
+    // ── Validation (email required, phone optional) ───────────────────────────
     const validateForm = () => {
-        const { full_name, nic, dob, gender, address, phone, email, password, confirmPassword } = formData;
+        const { full_name, nic, dob, gender, address, email, password, confirmPassword } = formData;
 
         if (full_name.trim().length < 3)
             return toast.error('Full name is too short.'), false;
@@ -285,14 +256,8 @@ export default function Register() {
         if (address.trim().length < 5)
             return toast.error('Please enter a valid address.'), false;
 
-        if (contactMethod === 'email') {
-            if (!email || !email.includes('@'))
-                return toast.error('Please enter a valid email.'), false;
-        } else {
-            const phoneRegex = /^(?:\+94|0)[0-9]{9}$/;
-            if (!phoneRegex.test(phone))
-                return toast.error('Enter a valid Sri Lankan mobile number.'), false;
-        }
+        if (!email || !email.includes('@'))
+            return toast.error('Please enter a valid email address.'), false;
 
         if (strength.score < 2)
             return toast.error('Password is too weak.'), false;
@@ -303,33 +268,21 @@ export default function Register() {
         return true;
     };
 
-    // ── Submit: validate → send OTP → open OTP modal ─────────────────────────
+    // ── Submit: send OTP to email ────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validateForm()) return;
 
         setLoading(true);
         try {
-            const endpoint = contactMethod === 'email'
-                ? 'http://localhost:5001/api/send-registration-otp'
-                : 'http://localhost:5001/api/send-registration-sms-otp';
-            const body = contactMethod === 'email'
-                ? { email: formData.email }
-                : { phone: formData.phone };
-
-            const res  = await fetch(endpoint, {
-                method:  'POST',
+            const res = await fetch('http://localhost:5001/api/send-registration-otp', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(body)
+                body: JSON.stringify({ email: formData.email })
             });
             const data = await res.json();
-
             if (data.success) {
-                toast.success(
-                    contactMethod === 'email'
-                        ? `Verification code sent to ${formData.email}`
-                        : `Verification code sent to ${formData.phone}`
-                );
+                toast.success(`Verification code sent to ${formData.email}`);
                 setModalState('otp');
             } else {
                 toast.error(data.error || 'Failed to send OTP.');
@@ -341,19 +294,17 @@ export default function Register() {
         }
     };
 
-    // ── After OTP confirmed: register the patient ─────────────────────────────
+    // ── After OTP confirmed: register the patient ────────────────────────────
     const handleOtpVerified = async () => {
         setLoading(true);
         try {
-            const res  = await fetch('http://localhost:5001/api/register', {
-                method:  'POST',
+            const res = await fetch('http://localhost:5001/api/register', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ ...formData, contactMethod })
+                body: JSON.stringify({ ...formData }) // contactMethod removed
             });
             const data = await res.json();
-
             if (data.success) {
-                // data.patientId = numeric DB id, data.barcode = "OPD-<timestamp>"
                 setRegisteredData({ patientId: data.patientId, barcode: data.barcode });
                 setModalState('barcode');
             } else {
@@ -371,12 +322,10 @@ export default function Register() {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className="register-screen" style={{ backgroundImage: "url('/background.jpg')" }}>
-
-            {/* OTP modal stays open during registration and shows spinner */}
+            {/* OTP modal */}
             {modalState === 'otp' && (
                 <OtpModal
-                    contactMethod={contactMethod}
-                    contactValue={contactMethod === 'email' ? formData.email : formData.phone}
+                    contactValue={formData.email}
                     onVerified={handleOtpVerified}
                     onClose={() => setModalState(null)}
                     registering={loading}
@@ -402,52 +351,20 @@ export default function Register() {
                 <div className="reg-card">
                     <h2 className="reg-title">Patient Registration</h2>
 
-                    <div className="contact-method-toggle">
-                        <p className="toggle-label">Register using:</p>
-                        <div className="toggle-buttons">
-                            <button type="button"
-                                className={`toggle-btn ${contactMethod === 'email' ? 'toggle-active' : ''}`}
-                                onClick={() => handleMethodSwitch('email')}>
-                                <Mail size={16} /> Email Address
-                            </button>
-                            <button type="button"
-                                className={`toggle-btn ${contactMethod === 'phone' ? 'toggle-active' : ''}`}
-                                onClick={() => handleMethodSwitch('phone')}>
-                                <Phone size={16} /> Mobile Number
-                            </button>
-                        </div>
-                        <p className="toggle-hint">
-                            {contactMethod === 'email'
-                                ? '📧 A verification code will be sent to your email.'
-                                : '📱 A verification code will be sent via SMS.'}
-                        </p>
-                    </div>
-
                     <form onSubmit={handleSubmit}>
                         <div className="reg-form-grid">
-
-                            {contactMethod === 'email' ? (
-                                <div className="input-block">
-                                    <label className="input-label">Email Address</label>
-                                    <div className="input-wrapper">
-                                        <Mail className="input-icon" size={20} />
-                                        <input type="email" name="email" value={formData.email}
-                                            onChange={handleChange} placeholder="your@email.com"
-                                            className="reg-input" required />
-                                    </div>
+                            {/* Email (required) */}
+                            <div className="input-block">
+                                <label className="input-label">Email Address</label>
+                                <div className="input-wrapper">
+                                    <Mail className="input-icon" size={20} />
+                                    <input type="email" name="email" value={formData.email}
+                                        onChange={handleChange} placeholder="your@email.com"
+                                        className="reg-input" required />
                                 </div>
-                            ) : (
-                                <div className="input-block">
-                                    <label className="input-label">Mobile Number</label>
-                                    <div className="input-wrapper">
-                                        <Phone className="input-icon" size={20} />
-                                        <input type="tel" name="phone" value={formData.phone}
-                                            onChange={handleChange} placeholder="0712345678"
-                                            className="reg-input" required />
-                                    </div>
-                                </div>
-                            )}
+                            </div>
 
+                            {/* Full Name */}
                             <div className="input-block">
                                 <label className="input-label">Full Name</label>
                                 <div className="input-wrapper">
@@ -458,6 +375,7 @@ export default function Register() {
                                 </div>
                             </div>
 
+                            {/* NIC */}
                             <div className="input-block">
                                 <label className="input-label">NIC Number</label>
                                 <div className="input-wrapper">
@@ -468,6 +386,7 @@ export default function Register() {
                                 </div>
                             </div>
 
+                            {/* Date of Birth */}
                             <div className="input-block">
                                 <label className="input-label">Date of Birth</label>
                                 <div className="input-wrapper">
@@ -477,6 +396,7 @@ export default function Register() {
                                 </div>
                             </div>
 
+                            {/* Gender */}
                             <div className="input-block">
                                 <label className="input-label">Gender</label>
                                 <select className="reg-input" name="gender" value={formData.gender}
@@ -488,33 +408,20 @@ export default function Register() {
                                 </select>
                             </div>
 
-                            {contactMethod === 'email' && (
-                                <div className="input-block">
-                                    <label className="input-label">
-                                        Phone Number <span className="optional-tag">(optional)</span>
-                                    </label>
-                                    <div className="input-wrapper">
-                                        <Phone className="input-icon" size={20} />
-                                        <input type="tel" name="phone" value={formData.phone}
-                                            onChange={handleChange} placeholder="0712345678"
-                                            className="reg-input" />
-                                    </div>
+                            {/* Phone (optional) */}
+                            <div className="input-block">
+                                <label className="input-label">
+                                    Phone Number <span className="optional-tag">(optional)</span>
+                                </label>
+                                <div className="input-wrapper">
+                                    <Phone className="input-icon" size={20} />
+                                    <input type="tel" name="phone" value={formData.phone}
+                                        onChange={handleChange} placeholder="0712345678"
+                                        className="reg-input" />
                                 </div>
-                            )}
-                            {contactMethod === 'phone' && (
-                                <div className="input-block">
-                                    <label className="input-label">
-                                        Email Address <span className="optional-tag">(optional)</span>
-                                    </label>
-                                    <div className="input-wrapper">
-                                        <Mail className="input-icon" size={20} />
-                                        <input type="email" name="email" value={formData.email}
-                                            onChange={handleChange} placeholder="your@email.com"
-                                            className="reg-input" />
-                                    </div>
-                                </div>
-                            )}
+                            </div>
 
+                            {/* Address (full width) */}
                             <div className="input-block" style={{ gridColumn: '1 / -1' }}>
                                 <label className="input-label">Address</label>
                                 <div className="input-wrapper">
@@ -527,6 +434,7 @@ export default function Register() {
                                 </div>
                             </div>
 
+                            {/* Password */}
                             <div className="input-block">
                                 <label className="input-label">Password</label>
                                 <div className="input-wrapper">
@@ -543,7 +451,7 @@ export default function Register() {
                                 {formData.password.length > 0 && (
                                     <div className="password-strength">
                                         <div className="strength-bars">
-                                            {[1,2,3,4,5].map((bar) => (
+                                            {[1, 2, 3, 4, 5].map((bar) => (
                                                 <div key={bar} className="strength-bar" style={{
                                                     backgroundColor: bar <= strength.score
                                                         ? strength.color : '#e5e7eb',
@@ -563,6 +471,7 @@ export default function Register() {
                                 )}
                             </div>
 
+                            {/* Confirm Password */}
                             <div className="input-block">
                                 <label className="input-label">Confirm Password</label>
                                 <div className="input-wrapper">
@@ -588,7 +497,6 @@ export default function Register() {
                                     </p>
                                 )}
                             </div>
-
                         </div>
 
                         <button type="submit" className="btn-reg-action" disabled={loading}>

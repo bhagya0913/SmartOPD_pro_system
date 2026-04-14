@@ -601,272 +601,6 @@ app.post('/api/login', async (req, res) => {
 //    • Booking confirmation email with OPD slip details
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Helper: calculate estimated time from token number ────────────────────────
-// OPD hours from system_settings; each patient gets 10 min; token = FCFS position
-async function calcEstimatedTime(tokenNo) {
-    try {
-        const [rows] = await db.query(
-            `SELECT setting_key, setting_value FROM system_settings
-             WHERE setting_key IN ('opd_start_hour', 'slot_duration_minutes')`
-        );
-        const cfg = {};
-        rows.forEach(r => { cfg[r.setting_key] = r.setting_value; });
-        const startHour  = parseInt(cfg.opd_start_hour)           || 8;   // e.g. 8 → 08:00
-        const slotMinutes = parseInt(cfg.slot_duration_minutes)   || 10;  // default 10 min
-        const totalMinutes = startHour * 60 + (tokenNo - 1) * slotMinutes;
-        const h = Math.floor(totalMinutes / 60);
-        const m = totalMinutes % 60;
-        const hEnd = Math.floor((totalMinutes + slotMinutes) / 60);
-        const mEnd = (totalMinutes + slotMinutes) % 60;
-        const fmt = (hh, mm) => {
-            const hr = hh % 12 || 12;
-            const ampm = hh < 12 ? 'AM' : 'PM';
-            return `${String(hr).padStart(2,'0')}:${String(mm).padStart(2,'0')} ${ampm}`;
-        };
-        return `${fmt(h,m)} – ${fmt(hEnd,mEnd)}`;
-    } catch {
-        return null;
-    }
-}
-
-// ── POST /api/book-appointment ────────────────────────────────────────────────
-// Date-only booking: no startTime/endTime required from frontend.
-// Token is FCFS daily sequence. Max 60/day. Estimated time auto-calculated.
-app.post('/api/book-appointment', async (req, res) => {
-    const { patientId, date, visitType = 'New' } = req.body;
-    if (!patientId || !date)
-        return res.status(400).json({ success: false, message: 'patientId and date are required.' });
-
-    try {
-        // 1. Check closed dates
-        const [settingRows] = await db.query(
-            `SELECT setting_value FROM system_settings WHERE setting_key = 'closed_dates'`
-        );
-        const closedDates = (settingRows[0]?.setting_value || '').split(',').map(s => s.trim()).filter(Boolean);
-        if (closedDates.includes(date))
-            return res.json({ success: false, message: 'OPD is closed on this date.' });
-
-        // 2. Check max patients per day (60)
-        const [[{ total }]] = await db.query(
-            `SELECT COUNT(*) AS total FROM appointments
-             WHERE appointment_day=? AND status NOT IN ('cancelled','no_show')`,
-            [date]
-        );
-        const MAX_PER_DAY = 60;
-        if (total >= MAX_PER_DAY)
-            return res.json({ success: false, message: `This date is fully booked (${MAX_PER_DAY} patients). Please choose another date.` });
-
-        // 3. Prevent duplicate booking
-        const [dupes] = await db.query(
-            `SELECT appointment_id FROM appointments
-             WHERE patient_id=? AND appointment_day=? AND status NOT IN ('cancelled','no_show') LIMIT 1`,
-            [patientId, date]
-        );
-        if (dupes.length)
-            return res.json({ success: false, message: 'You already have an appointment on that date.' });
-
-        // 4. Assign next token (FCFS)
-        const tokenNo = total + 1;
-
-        // 5. Calculate estimated time slot (start_time, end_time) from token
-        const [cfgRows] = await db.query(
-            `SELECT setting_key, setting_value FROM system_settings
-             WHERE setting_key IN ('opd_start_hour','slot_duration_minutes')`
-        );
-        const cfg = {};
-        cfgRows.forEach(r => { cfg[r.setting_key] = r.setting_value; });
-        const startHour   = parseInt(cfg.opd_start_hour)          || 8;
-        const slotMinutes = parseInt(cfg.slot_duration_minutes)   || 10;
-
-        const startTotalMin = startHour * 60 + (tokenNo - 1) * slotMinutes;
-        const endTotalMin   = startTotalMin + slotMinutes;
-        const toTimeStr = (mins) => `${String(Math.floor(mins/60)).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}:00`;
-        const startTime = toTimeStr(startTotalMin);
-        const endTime   = toTimeStr(endTotalMin);
-
-        // 6. Insert appointment
-        const [result] = await db.query(
-            `INSERT INTO appointments (patient_id, appointment_day, start_time, end_time, queue_no, visit_type, status, is_present, created_at)
-             VALUES (?,?,?,?,?,?,'booked',0,NOW())`,
-            [patientId, date, startTime, endTime, tokenNo, visitType]
-        );
-        const appointmentId = result.insertId;
-
-        // 7. Human-readable estimated time
-        const estimatedTime = await calcEstimatedTime(tokenNo);
-
-        // 8. Send booking confirmation email (non-blocking)
-        sendBookingEmail(patientId, appointmentId, date, tokenNo, estimatedTime, visitType).catch(console.error);
-
-        res.json({ success: true, tokenNo, appointmentId, estimatedTime });
-
-    } catch (err) {
-        console.error('Book appointment error:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-
-// ── BOOKING CONFIRMATION EMAIL ─────────────────────────────────────────────────
-async function sendBookingEmail(patientId, appointmentId, date, tokenNo, estimatedTime, visitType) {
-    try {
-        // Fetch patient email and name
-        const [pRows] = await db.query(
-            `SELECT p.full_name, p.email, p.barcode, p.nic
-             FROM patient p WHERE p.patient_id=? LIMIT 1`,
-            [patientId]
-        );
-        if (!pRows.length || !pRows[0].email) return;
-        const { full_name, email, barcode, nic } = pRows[0];
-
-        const formattedDate = new Date(date).toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-
-        const html = `
-<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
-<div style="max-width:520px;margin:32px auto;background:white;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.08);">
-
-    <!-- Header -->
-    <div style="background:#0f172a;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <div style="width:36px;height:36px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:white;">+</div>
-            <div>
-                <div style="color:white;font-size:11px;font-weight:700;letter-spacing:.5px;">BASE HOSPITAL, KIRIBATHGODA</div>
-                <div style="color:#475569;font-size:9px;margin-top:1px;">Ministry of Health · Sri Lanka</div>
-            </div>
-        </div>
-        <div style="color:#2563eb;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Appointment Confirmed</div>
-    </div>
-    <div style="height:3px;background:linear-gradient(90deg,#2563eb,#7c3aed);"></div>
-
-    <!-- Token display -->
-    <div style="background:#eff6ff;padding:28px 32px;text-align:center;border-bottom:1px solid #dbeafe;">
-        <div style="font-size:11px;color:#3b82f6;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Your Queue Token</div>
-        <div style="font-size:72px;font-weight:900;color:#1e40af;line-height:1;letter-spacing:-3px;">#${tokenNo}</div>
-        <div style="font-size:12px;color:#3b82f6;margin-top:8px;">First Come, First Served · OPD System</div>
-    </div>
-
-    <!-- Details -->
-    <div style="padding:24px 32px;">
-        <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">Dear ${full_name},</div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.6;">Your OPD appointment has been confirmed. Please arrive on time and present this slip at the nursing station.</div>
-
-        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:20px;">
-            ${[
-                ['Date',            formattedDate],
-                ['Estimated Time',  estimatedTime || 'Will be determined on arrival'],
-                ['Token Number',    `#${tokenNo}`],
-                ['Visit Type',      visitType],
-                ['Patient Barcode', barcode || '—'],
-                ['NIC',             nic     || '—'],
-            ].map(([l,v],i) => `
-            <div style="padding:10px 16px;background:${i%2===0?'#f8fafc':'white'};border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:11px;color:#64748b;font-weight:600;">${l}</span>
-                <span style="font-size:12px;color:#0f172a;font-weight:700;text-align:right;">${v}</span>
-            </div>`).join('')}
-        </div>
-
-        <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:20px;">
-            <div style="font-size:11px;color:#78350f;font-weight:700;margin-bottom:4px;">ℹ️ Important Instructions</div>
-            <ul style="font-size:11px;color:#92400e;margin:0;padding-left:16px;line-height:1.8;">
-                <li>Arrive at least 10 minutes before your estimated time.</li>
-                <li>Bring this email / your barcode card to the OPD counter.</li>
-                <li>Bring all previous medical records and reports.</li>
-                <li>Your actual call time depends on earlier patients.</li>
-            </ul>
-        </div>
-    </div>
-
-    <div style="background:#f8fafc;padding:14px 32px;border-top:1px solid #e2e8f0;text-align:center;">
-        <div style="font-size:10px;color:#94a3b8;">SmartOPD · Base Hospital, Kiribathgoda · Ministry of Health, Sri Lanka</div>
-        <div style="font-size:9px;color:#cbd5e1;margin-top:3px;">This is an automated email. Do not reply.</div>
-    </div>
-</div>
-</body></html>`;
-
-        await transporter.sendMail({
-            from:    process.env.SMTP_USER || 'SmartOPD <bhagya0913@gmail.com>',
-            to:      email,
-            subject: `✓ OPD Appointment Confirmed — Token #${tokenNo} · ${date}`,
-            html
-        });
-
-        // Also log to notifications table
-        await db.query(
-            `INSERT INTO notifications (patient_id, recipient_type, email_subject, message, status, sent_at)
-             VALUES (?, 'patient', ?, ?, 'sent', NOW())`,
-            [
-                patientId,
-                `OPD Appointment Confirmed — Token #${tokenNo}`,
-                `Your appointment on ${date} is confirmed. Token: #${tokenNo}. Estimated time: ${estimatedTime || 'TBD'}.`
-            ]
-        ).catch(() => {}); // notifications table may not exist yet — don't crash
-
-    } catch (err) {
-        console.error('Booking email error:', err);
-    }
-}
-
-
-// ── GET /api/opd-slots (kept for capacity-checking — date-only mode) ──────────
-// Frontend uses this to show a capacity bar, not individual slot pickers.
-app.get('/api/opd-slots', async (req, res) => {
-    const { date } = req.query;
-    if (!date) return res.status(400).json({ success: false, message: 'date required' });
-    try {
-        const [settingRows] = await db.query(
-            `SELECT setting_key, setting_value FROM system_settings
-             WHERE setting_key IN ('opd_start_hour','opd_end_hour','slot_capacity','closed_dates','slot_duration_minutes')`
-        );
-        const cfg = {};
-        settingRows.forEach(r => { cfg[r.setting_key] = r.setting_value; });
-
-        const closedDates = (cfg.closed_dates || '').split(',').map(s => s.trim()).filter(Boolean);
-        if (closedDates.includes(date))
-            return res.json({ success: true, slots: [], closed: true });
-
-        // Count bookings for the day
-        const [[{ booked }]] = await db.query(
-            `SELECT COUNT(*) AS booked FROM appointments
-             WHERE appointment_day=? AND status NOT IN ('cancelled','no_show')`,
-            [date]
-        );
-
-        const MAX_PER_DAY = 60;
-        const remaining   = Math.max(0, MAX_PER_DAY - booked);
-
-        res.json({
-            success:   true,
-            closed:    false,
-            booked:    parseInt(booked),
-            remaining,
-            capacity:  MAX_PER_DAY,
-            // Also return slot-level data for backwards compat if needed
-            slots: [{ time_slot: 'All Day (FCFS)', capacity: MAX_PER_DAY, booked: parseInt(booked), remaining }]
-        });
-    } catch (err) {
-        console.error('OPD slots error:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-
-// ── Add to system_settings table (run once as seed) ───────────────────────────
-/*
-INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES
-  ('opd_start_hour',        '8'),
-  ('opd_end_hour',          '18'),
-  ('slot_duration_minutes', '10'),
-  ('closed_dates',          '');
-*/
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  SmartOPD — Pharmacist + Lab + Staff Feedback Routes
-//  Add these to server.js above app.listen
-//  db = pool.promise()  →  const [rows] = await db.query(sql, params)
-// ═══════════════════════════════════════════════════════════════════════════
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  PHARMACIST STATS
@@ -1069,6 +803,205 @@ app.get('/api/staff/feedback/:staff_id', async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PHARMACIST DASHBOARD ROUTES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── GET /api/pharmacist/stats ─────────────────────────────────────────────
+// Returns counts: pending, fulfilled today, total today
+app.get('/api/pharmacist/stats', async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        // Pending: prescriptions with no fulfillment record
+        const [pendingResult] = await db.query(`
+            SELECT COUNT(*) AS pending
+            FROM treatment_records tr
+            WHERE tr.prescription_details IS NOT NULL
+              AND tr.prescription_details != ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM prescription_fulfillment pf
+                  WHERE pf.prescription_id = tr.record_id
+              )
+        `);
+        // Fulfilled today
+        const [fulfilledResult] = await db.query(`
+            SELECT COUNT(*) AS fulfilled
+            FROM prescription_fulfillment pf
+            WHERE DATE(pf.fulfilled_at) = ?
+        `, [today]);
+        // Total prescriptions created today
+        const [totalResult] = await db.query(`
+            SELECT COUNT(*) AS total
+            FROM treatment_records tr
+            WHERE DATE(tr.consultation_day) = ?
+              AND tr.prescription_details IS NOT NULL
+              AND tr.prescription_details != ''
+        `, [today]);
+
+        res.json({
+            success: true,
+            stats: {
+                pending: pendingResult[0]?.pending || 0,
+                fulfilled: fulfilledResult[0]?.fulfilled || 0,
+                total: totalResult[0]?.total || 0
+            }
+        });
+    } catch (err) {
+        console.error('stats error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ── GET /api/pharmacist/pending-queue ─────────────────────────────────────
+// Returns list of pending prescriptions with patient & doctor info
+app.get('/api/pharmacist/pending-queue', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                tr.record_id,
+                tr.consultation_day,
+                p.full_name AS patient_name,
+                p.nic,
+                p.barcode,
+                CONCAT(s.first_name, ' ', s.surname) AS doctor_name,
+                s.staff_id AS doctor_staff_id
+            FROM treatment_records tr
+            JOIN patient p ON tr.patient_id = p.patient_id
+            LEFT JOIN staff s ON tr.created_by = s.staff_id
+            WHERE tr.prescription_details IS NOT NULL
+              AND tr.prescription_details != ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM prescription_fulfillment pf
+                  WHERE pf.prescription_id = tr.record_id
+              )
+            ORDER BY tr.consultation_day ASC
+            LIMIT 100
+        `);
+        res.json(rows); // frontend expects array directly
+    } catch (err) {
+        console.error('pending-queue error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── GET /api/pharmacist/all-prescriptions ─────────────────────────────────
+// Supports ?status=pending|fulfilled|all
+app.get('/api/pharmacist/all-prescriptions', async (req, res) => {
+    const { status } = req.query;
+    try {
+        let query = `
+            SELECT
+                tr.record_id,
+                tr.consultation_day,
+                p.full_name AS patient_name,
+                p.nic,
+                p.barcode,
+                CONCAT(s.first_name, ' ', s.surname) AS doctor_name,
+                s.staff_id AS doctor_staff_id,
+                pf.fulfilled_at,
+                CASE WHEN pf.fulfillment_id IS NOT NULL THEN 1 ELSE 0 END AS fulfilled
+            FROM treatment_records tr
+            JOIN patient p ON tr.patient_id = p.patient_id
+            LEFT JOIN staff s ON tr.created_by = s.staff_id
+            LEFT JOIN prescription_fulfillment pf ON pf.prescription_id = tr.record_id
+            WHERE tr.prescription_details IS NOT NULL
+              AND tr.prescription_details != ''
+        `;
+        const params = [];
+        if (status === 'pending') {
+            query += ` AND pf.fulfillment_id IS NULL`;
+        } else if (status === 'fulfilled') {
+            query += ` AND pf.fulfillment_id IS NOT NULL`;
+        }
+        query += ` ORDER BY tr.consultation_day DESC LIMIT 500`;
+        const [rows] = await db.query(query, params);
+        res.json({ success: true, prescriptions: rows });
+    } catch (err) {
+        console.error('all-prescriptions error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ── GET /api/pharmacist/prescriptions-by-patient ─────────────────────────
+// Searches by barcode OR NIC (term can be either)
+app.get('/api/pharmacist/prescriptions-by-patient', async (req, res) => {
+    const { term } = req.query;
+    if (!term) return res.status(400).json({ success: false, message: 'Missing search term.' });
+
+    try {
+        // First find patient by barcode or NIC
+        const [patients] = await db.query(`
+            SELECT patient_id, full_name, nic, barcode, gender, dob, phone
+            FROM patient
+            WHERE barcode = ? OR nic = ?
+            LIMIT 1
+        `, [term, term]);
+
+        if (patients.length === 0) {
+            return res.json({ success: false, message: 'Patient not found.' });
+        }
+        const patient = patients[0];
+
+        // Get all prescriptions for this patient
+        const [prescriptions] = await db.query(`
+            SELECT
+                tr.record_id,
+                tr.consultation_day,
+                tr.prescription_details,
+                CONCAT(s.first_name, ' ', s.surname) AS doctor_name,
+                s.staff_id AS doctor_staff_id,
+                pf.fulfilled_at,
+                CASE WHEN pf.fulfillment_id IS NOT NULL THEN 1 ELSE 0 END AS fulfilled
+            FROM treatment_records tr
+            LEFT JOIN staff s ON tr.created_by = s.staff_id
+            LEFT JOIN prescription_fulfillment pf ON pf.prescription_id = tr.record_id
+            WHERE tr.patient_id = ?
+              AND tr.prescription_details IS NOT NULL
+              AND tr.prescription_details != ''
+            ORDER BY tr.consultation_day DESC
+        `, [patient.patient_id]);
+
+        res.json({
+            success: true,
+            patient,
+            prescriptions
+        });
+    } catch (err) {
+        console.error('prescriptions-by-patient error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ── POST /api/pharmacist/fulfill-record ──────────────────────────────────
+// Marks an entire prescription as dispensed (creates fulfillment record)
+app.post('/api/pharmacist/fulfill-record', async (req, res) => {
+    const { record_id, pharmacist_id, notes } = req.body;
+    if (!record_id || !pharmacist_id) {
+        return res.status(400).json({ success: false, message: 'record_id and pharmacist_id required.' });
+    }
+
+    try {
+        // Check if already fulfilled
+        const [existing] = await db.query(
+            `SELECT fulfillment_id FROM prescription_fulfillment WHERE prescription_id = ?`,
+            [record_id]
+        );
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: 'Prescription already dispensed.' });
+        }
+
+        await db.query(
+            `INSERT INTO prescription_fulfillment (prescription_id, pharmacist_id, fulfilled_at, notes)
+             VALUES (?, ?, NOW(), ?)`,
+            [record_id, pharmacist_id, notes || null]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('fulfill-record error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  MIGRATION NOTE
@@ -1351,201 +1284,51 @@ app.get('/api/staff/feedback/:staffId', async (req, res) => {
 //  DOCTOR ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
-app.get('/api/doctor/queue', async (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
-    try {
-        const [rows] = await db.query(`
-            SELECT a.appointment_id, a.queue_no, a.visit_type, a.status,
-                a.start_time, a.end_time, a.appointment_day,
-                CONCAT(TIME_FORMAT(a.start_time,'%H:%i'),' – ',TIME_FORMAT(a.end_time,'%H:%i')) AS time_slot,
-                p.patient_id, p.full_name, p.nic, p.barcode, p.dob, p.gender,
-                p.phone, p.blood_group, p.address_line1, p.address,
-                p.allergies, p.chronic_conditions
-            FROM appointments a
-            JOIN patient p ON a.patient_id = p.patient_id
-            WHERE a.appointment_day=? AND a.status NOT IN ('cancelled','no_show')
-            ORDER BY a.queue_no ASC
-        `, [today]);
-        res.json(rows);
-    } catch (err) {
-        console.error('Queue error:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-app.get('/api/doctor/search-patient', async (req, res) => {
-    const { term } = req.query;
-    if (!term) return res.status(400).json({ success: false, message: 'Search term required.' });
-    try {
-        const [rows] = await db.query(`
-            SELECT patient_id, full_name, nic, barcode, dob, gender,
-                phone, blood_group, address_line1, address,
-                allergies, chronic_conditions, civil_status, email, is_active
-            FROM patient
-            WHERE (barcode=? OR nic=? OR full_name LIKE ?) AND is_active=1
-            ORDER BY full_name ASC LIMIT 20
-        `, [term, term, `%${term}%`]);
-        if (!rows.length) return res.json({ success: false, message: 'No patient found.' });
-        res.json({ success: true, patients: rows });
-    } catch (err) {
-        console.error('Search error:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-app.get('/api/doctor/patient-history/:patientId', async (req, res) => {
-    try {
-        const [rows] = await db.query(`
-            SELECT tr.record_id, tr.consultation_day, tr.chief_complaint, tr.clinical_findings,
-                tr.diagnosis, tr.treatment_details, tr.prescription_details,
-                tr.weight_kg, tr.height_cm, tr.follow_up_date,
-                CONCAT(s.first_name,' ',s.surname) AS doctor_name
-            FROM treatment_records tr
-            LEFT JOIN staff s ON tr.created_by = s.staff_id
-            WHERE tr.patient_id=? ORDER BY tr.consultation_day DESC
-        `, [req.params.patientId]);
-        res.json(rows);
-    } catch (err) {
-        console.error('History error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/doctor/save-consultation', async (req, res) => {
-    const { patient_id, doctor_id, chief_complaint, clinical_findings, diagnosis,
-            treatment_details, prescription, weight_kg, height_cm,
-            follow_up_date, lab_tests, referral, appointment_id } = req.body;
-
-    if (!patient_id)        return res.status(400).json({ success: false, message: 'patient_id required.' });
-    if (!clinical_findings) return res.status(400).json({ success: false, message: 'Clinical findings required.' });
-
-    const conn = await db.getConnection();
-    try {
-        await conn.beginTransaction();
-
-        const [trResult] = await conn.query(`
-            INSERT INTO treatment_records
-            (appointment_id, patient_id, consultation_day, chief_complaint, clinical_findings,
-             diagnosis, treatment_details, prescription_details, weight_kg, height_cm, follow_up_date, created_by)
-            VALUES (?,?,NOW(),?,?,?,?,?,?,?,?,?)
-        `, [appointment_id||null, patient_id, chief_complaint||null, clinical_findings,
-            diagnosis||null, treatment_details||null, prescription||null,
-            weight_kg||null, height_cm||null, follow_up_date||null, doctor_id||null]);
-
-        if (Array.isArray(lab_tests)) {
-            for (const t of lab_tests.filter(t => t.name?.trim())) {
-                await conn.query(`
-                    INSERT INTO medical_tests (appointment_id, patient_id, test_type, test_name, status, requested_by)
-                    VALUES (?,?,?,?,'requested',?)
-                `, [appointment_id||null, patient_id, t.type||'Lab', t.name, doctor_id||null]);
-            }
-        }
-
-        if (referral && referral.consultant?.trim()) {
-            await conn.query(`
-                INSERT INTO referrals (appointment_id, patient_id, issued_by, consultant_name,
-                    target_clinic, urgency, referral_date, reason)
-                VALUES (?,?,?,?,?,?,NOW(),?)
-            `, [appointment_id||null, patient_id, doctor_id||null, referral.consultant,
-                referral.clinic||null, referral.urgency||'Routine', referral.reason||null]);
-        }
-
-        await conn.commit();
-        res.json({ success: true, message: 'Consultation saved.', record_id: trResult.insertId });
-    } catch (err) {
-        await conn.rollback();
-        console.error('Save consultation error:', err);
-        res.status(500).json({ success: false, message: err.message });
-    } finally {
-        conn.release();
-    }
-});
-
-app.post('/api/doctor/update-profile', async (req, res) => {
-    const { staff_id, first_name, surname, phone } = req.body;
-    if (!staff_id) return res.status(400).json({ success: false, message: 'staff_id required.' });
-    try {
-        await db.query('UPDATE staff SET first_name=?, surname=?, phone=? WHERE staff_id=?',
-            [first_name, surname, phone||null, staff_id]);
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-app.post('/api/doctor/change-password', async (req, res) => {
-    const { staff_id, current, next } = req.body;
-    if (!staff_id || !current || !next)
-        return res.status(400).json({ success: false, message: 'All fields required.' });
-    try {
-        const [[account]] = await db.query('SELECT password_hash FROM user_account WHERE staff_id=? LIMIT 1', [staff_id]);
-        if (!account) return res.json({ success: false, message: 'Account not found.' });
-        const ok = await bcrypt.compare(current, account.password_hash);
-        if (!ok) return res.json({ success: false, message: 'Current password is incorrect.' });
-        const hash = await bcrypt.hash(next, 10);
-        await db.query('UPDATE user_account SET password_hash=? WHERE staff_id=?', [hash, staff_id]);
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
 // ═══════════════════════════════════════════════════════════════════════════
-//  DOCTOR ROUTES PATCH
+//  DOCTOR ROUTES — paste these into your server.js
+//  after your existing doctor routes block.
 //
-//  YOUR PROBLEM: DoctorDashboard.jsx calls these 6 endpoints that do NOT
-//  exist in your server.js:
-//
-//    ❌  GET  /api/doctor/patient-lookup    (JSX calls this)
-//    ❌  GET  /api/doctor/today-queue       (JSX calls this)
-//    ❌  GET  /api/doctor/patient-appointments/:patientId  (JSX calls this)
-//    ❌  POST /api/doctor/treatment-record  (JSX calls this)
-//    ❌  POST /api/doctor/order-tests       (JSX calls this)
-//    ❌  POST /api/doctor/referral          (JSX calls this)
-//
-//  Your server.js has OLD routes with different names:
-//    ✅  GET  /api/doctor/queue             ← old name, JSX no longer calls this
-//    ✅  GET  /api/doctor/search-patient    ← old name, JSX no longer calls this
-//    ✅  POST /api/doctor/save-consultation ← old name, JSX no longer calls this
-//
-//  HOW TO FIX:
-//  Paste all 6 routes below into your server.js, directly after your
-//  existing doctor routes block (after /api/doctor/change-password).
-//  You can optionally DELETE the 3 old routes (queue, search-patient,
-//  save-consultation) — they are no longer called by the frontend.
-//
+//  Endpoints provided:
+//    GET  /api/doctor/patient-lookup        (NIC / barcode search)
+//    GET  /api/doctor/today-queue           (today's appointments + stats)
+//    GET  /api/doctor/appointments-by-date  (single date filter)
+//    GET  /api/doctor/appointments-by-range (date range filter)
+//    GET  /api/doctor/patient-appointments/:patientId
+//    GET  /api/doctor/patient-history/:patientId  (returns weight/height too)
+//    POST /api/doctor/treatment-record      (saves with NOW() + doctor id)
+//    POST /api/doctor/order-tests           (Lab/Imaging/ECG + Routine/Emergency)
+//    POST /api/doctor/referral
+//    POST /api/doctor/lab-findings
+//    POST /api/doctor/update-profile
+//    POST /api/doctor/change-password
+//    GET  /api/staff/notifications/:staffId
+//    GET  /api/staff/feedback/:staffId
+//    POST /api/staff/feedback
 // ═══════════════════════════════════════════════════════════════════════════
 
 
-// ── 1. Patient Lookup (3 modes: barcode | nic | name) ────────────────────────
-// Called by PatientLookup component in DoctorDashboard.jsx
-// GET /api/doctor/patient-lookup?mode=barcode|nic|name&q=<value>
+// ── 1. Patient Lookup ─────────────────────────────────────────────────────────
+// GET /api/doctor/patient-lookup?mode=barcode|nic&q=<value>
 app.get('/api/doctor/patient-lookup', async (req, res) => {
     const { mode, q } = req.query;
     if (!mode || !q)
         return res.status(400).json({ success: false, message: 'mode and q required' });
+
+    const cols = `patient_id, barcode, full_name, nic, dob, gender, blood_group,
+                  phone, allergies, chronic_conditions, address_line1, address,
+                  emergency_contact, civil_status`;
     try {
-        const cols = `patient_id, barcode, full_name, nic, dob, gender, blood_group,
-                      phone, allergies, address_line1, address, emergency_contact,
-                      chronic_conditions, civil_status`;
         let rows;
         if (mode === 'barcode') {
-            // Barcode is globally unique — return exactly one
             [rows] = await db.query(
                 `SELECT ${cols} FROM patient WHERE barcode = ? AND is_active = 1 LIMIT 1`,
                 [q.trim()]
             );
-        } else if (mode === 'nic') {
-            // NIC may match multiple family-account patients
+        } else {
+            // NIC — may match multiple family-account patients
             [rows] = await db.query(
                 `SELECT ${cols} FROM patient WHERE nic = ? AND is_active = 1 ORDER BY patient_id ASC`,
                 [q.trim()]
-            );
-        } else {
-            // Name — partial match
-            [rows] = await db.query(
-                `SELECT ${cols} FROM patient WHERE full_name LIKE ? AND is_active = 1
-                 ORDER BY full_name ASC LIMIT 20`,
-                [`%${q.trim()}%`]
             );
         }
         res.json({ success: true, patients: rows });
@@ -1555,22 +1338,23 @@ app.get('/api/doctor/patient-lookup', async (req, res) => {
 });
 
 
-// ── 2. Today's patient queue ──────────────────────────────────────────────────
-// Called by DoctorHome component
-// GET /api/doctor/today-queue?staffId=<id>
+// ── 2. Today's queue (used for stat cards + default table view) ───────────────
+// GET /api/doctor/today-queue
 app.get('/api/doctor/today-queue', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
         const [rows] = await db.query(`
-            SELECT a.appointment_id, a.patient_id, a.appointment_day,
-                   a.start_time, a.end_time, a.queue_no, a.visit_type,
-                   a.status, a.is_present,
-                   p.full_name AS patient_name, p.barcode AS patient_barcode,
-                   p.allergies, p.blood_group, p.dob, p.gender, p.nic, p.phone
+            SELECT
+                a.appointment_id, a.patient_id, a.appointment_day,
+                a.start_time, a.end_time, a.queue_no, a.visit_type,
+                a.status, a.is_present,
+                p.full_name   AS patient_name,
+                p.barcode     AS patient_barcode,
+                p.allergies, p.blood_group, p.dob, p.gender, p.nic, p.phone,
+                p.chronic_conditions
             FROM appointments a
             JOIN patient p ON a.patient_id = p.patient_id
             WHERE a.appointment_day = ?
-              AND a.status IN ('booked', 'active')
             ORDER BY a.queue_no ASC
         `, [today]);
         res.json({ success: true, queue: rows });
@@ -1580,20 +1364,74 @@ app.get('/api/doctor/today-queue', async (req, res) => {
 });
 
 
-// ── 3. Appointments for a specific patient (used in dropdowns) ───────────────
-// Called by Consultation, OrderDiagnostics, IssueReferral components
+// ── 3. Appointments by a single date ─────────────────────────────────────────
+// GET /api/doctor/appointments-by-date?date=YYYY-MM-DD
+app.get('/api/doctor/appointments-by-date', async (req, res) => {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ success: false, message: 'date required' });
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                a.appointment_id, a.patient_id, a.appointment_day,
+                a.start_time, a.end_time, a.queue_no, a.visit_type,
+                a.status, a.is_present,
+                p.full_name   AS patient_name,
+                p.barcode     AS patient_barcode,
+                p.allergies, p.blood_group, p.dob, p.gender, p.nic, p.phone,
+                p.chronic_conditions
+            FROM appointments a
+            JOIN patient p ON a.patient_id = p.patient_id
+            WHERE a.appointment_day = ?
+            ORDER BY a.queue_no ASC
+        `, [date]);
+        res.json({ success: true, queue: rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ── 4. Appointments by date range ─────────────────────────────────────────────
+// GET /api/doctor/appointments-by-range?from=YYYY-MM-DD&to=YYYY-MM-DD
+app.get('/api/doctor/appointments-by-range', async (req, res) => {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ success: false, message: 'from and to are required' });
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                a.appointment_id, a.patient_id, a.appointment_day,
+                a.start_time, a.end_time, a.queue_no, a.visit_type,
+                a.status, a.is_present,
+                p.full_name   AS patient_name,
+                p.barcode     AS patient_barcode,
+                p.allergies, p.blood_group, p.dob, p.gender, p.nic, p.phone,
+                p.chronic_conditions
+            FROM appointments a
+            JOIN patient p ON a.patient_id = p.patient_id
+            WHERE a.appointment_day BETWEEN ? AND ?
+            ORDER BY a.appointment_day ASC, a.queue_no ASC
+        `, [from, to]);
+        res.json({ success: true, queue: rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ── 5. Patient's own appointments (for consultation appointment selector) ──────
 // GET /api/doctor/patient-appointments/:patientId
 app.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT appointment_id, appointment_day, start_time, end_time,
-                   queue_no, visit_type, status,
-                   CONCAT(DATE_FORMAT(start_time,'%H:%i'),' – ',DATE_FORMAT(end_time,'%H:%i')) AS time_slot
+            SELECT
+                appointment_id, appointment_day, start_time, end_time,
+                queue_no, visit_type, status,
+                CONCAT(DATE_FORMAT(start_time,'%H:%i'),' – ',DATE_FORMAT(end_time,'%H:%i')) AS time_slot
             FROM appointments
             WHERE patient_id = ?
-              AND status IN ('booked', 'active', 'completed')
+              AND status IN ('booked','active','completed')
             ORDER BY appointment_day DESC, start_time ASC
-            LIMIT 20
+            LIMIT 30
         `, [req.params.patientId]);
         res.json({ success: true, appointments: rows });
     } catch (err) {
@@ -1602,17 +1440,45 @@ app.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
 });
 
 
-// ── 4. Save treatment record ──────────────────────────────────────────────────
-// Called by Consultation component
+// ── 6. Patient treatment history (includes latest weight/height) ───────────────
+// GET /api/doctor/patient-history/:patientId
+// Used by PatientLookup to fetch the most recent vitals for the health card
+app.get('/api/doctor/patient-history/:patientId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                tr.record_id,
+                tr.consultation_day,      -- stored as datetime via NOW()
+                tr.chief_complaint,
+                tr.clinical_findings,
+                tr.diagnosis,
+                tr.treatment_details,
+                tr.prescription_details,
+                tr.weight_kg,
+                tr.height_cm,
+                tr.follow_up_date,
+                CONCAT(s.first_name,' ',s.surname) AS doctor_name
+            FROM treatment_records tr
+            LEFT JOIN staff s ON tr.created_by = s.staff_id
+            WHERE tr.patient_id = ?
+            ORDER BY tr.consultation_day DESC
+        `, [req.params.patientId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+// ── 7. Save treatment record ──────────────────────────────────────────────────
 // POST /api/doctor/treatment-record
-// Body: { appointment_id, patient_id, staff_id, weight_kg, height_cm,
-//         chief_complaint, clinical_findings, diagnosis,
-//         treatment_details, prescription_details, follow_up_date }
+// consultation_day stored as NOW() (full datetime).
+// follow_up_date removed from UI but column still accepts null.
 app.post('/api/doctor/treatment-record', async (req, res) => {
     const {
         appointment_id, patient_id, staff_id,
         weight_kg, height_cm, chief_complaint, clinical_findings,
-        diagnosis, treatment_details, prescription_details, follow_up_date
+        diagnosis, treatment_details, prescription_details
     } = req.body;
 
     if (!appointment_id || !patient_id || !staff_id || !diagnosis)
@@ -1622,23 +1488,22 @@ app.post('/api/doctor/treatment-record', async (req, res) => {
         });
 
     try {
-        const today = new Date().toISOString().split('T')[0];
         const [result] = await db.query(`
             INSERT INTO treatment_records
-                (appointment_id, patient_id, consultation_day, weight_kg, height_cm,
-                 chief_complaint, clinical_findings, diagnosis, treatment_details,
-                 prescription_details, follow_up_date, created_by)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                (appointment_id, patient_id, consultation_day,
+                 weight_kg, height_cm, chief_complaint, clinical_findings,
+                 diagnosis, treatment_details, prescription_details,
+                 follow_up_date, created_by)
+            VALUES (?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, NULL, ?)
         `, [
-            appointment_id, patient_id, today,
-            weight_kg        || null,
-            height_cm        || null,
-            chief_complaint  || null,
-            clinical_findings|| null,
+            appointment_id, patient_id,
+            weight_kg         || null,
+            height_cm         || null,
+            chief_complaint   || null,
+            clinical_findings || null,
             diagnosis,
             treatment_details    || null,
             prescription_details || null,
-            follow_up_date       || null,
             staff_id
         ]);
 
@@ -1656,81 +1521,154 @@ app.post('/api/doctor/treatment-record', async (req, res) => {
 });
 
 
-// ── 5. Order diagnostic tests ─────────────────────────────────────────────────
-// Called by OrderDiagnostics component
+// ── 8. Order diagnostic tests ─────────────────────────────────────────────────
 // POST /api/doctor/order-tests
-// Body: { appointment_id, patient_id, staff_id, tests: [{ test_name, test_type }] }
-app.post('/api/doctor/order-tests', async (req, res) => {
-    const { appointment_id, patient_id, staff_id, tests } = req.body;
-
-    if (!appointment_id || !patient_id || !staff_id || !Array.isArray(tests) || !tests.length)
-        return res.status(400).json({
-            success: false,
-            message: 'appointment_id, patient_id, staff_id and tests[] are required.'
-        });
-
-    try {
-        for (const t of tests) {
-            if (!t.test_name?.trim()) continue;
-            await db.query(`
-                INSERT INTO medical_tests
-                    (appointment_id, patient_id, test_type, test_name, status, requested_by)
-                VALUES (?,?,?,?,'requested',?)
-            `, [appointment_id, patient_id, t.test_type || 'Lab', t.test_name.trim(), staff_id]);
-        }
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
+// test_type: 'Lab' | 'Imaging' | 'ECG'
+// priority:  'Routine' | 'Emergency'
+// (specimen and clinical_info removed from UI — not passed)
+   
 
 
-// ── 6. Issue referral ─────────────────────────────────────────────────────────
-// Called by IssueReferral component
-// POST /api/doctor/referral
-// Body: { appointment_id, patient_id, staff_id, target_clinic,
-//         consultant_name?, urgency, reason }
-app.post('/api/doctor/referral', async (req, res) => {
-    const { appointment_id, patient_id, staff_id, target_clinic, consultant_name, urgency, reason } = req.body;
-
-    if (!appointment_id || !patient_id || !staff_id || !target_clinic || !reason)
-        return res.status(400).json({
-            success: false,
-            message: 'appointment_id, patient_id, staff_id, target_clinic and reason are required.'
-        });
-
-    try {
-        const today = new Date().toISOString().split('T')[0];
-        await db.query(`
-            INSERT INTO referrals
-                (appointment_id, patient_id, issued_by, target_clinic,
-                 consultant_name, urgency, referral_date, reason)
-            VALUES (?,?,?,?,?,?,?,?)
-        `, [
+    // ── 9. Issue referral ─────────────────────────────────────────────────────────
+    // POST /api/doctor/referral
+    // referral_date stored as NOW() for full datetime
+    app.post('/api/doctor/referral', async (req, res) => {
+        const {
             appointment_id, patient_id, staff_id,
-            target_clinic,
-            consultant_name || null,
-            urgency         || 'Routine',
-            today,
-            reason
-        ]);
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
+            target_clinic, consultant_name, urgency, reason, clinical_summary
+        } = req.body;
 
-// ── 7. Save doctor findings on a lab test ─────────────────────────────────────
-// POST /api/doctor/lab-findings
-// Body: { test_id, patient_id, doctor_findings }
-app.post('/api/doctor/lab-findings', async (req, res) => {
-    const { test_id, patient_id, doctor_findings } = req.body;
-    if (!test_id || !doctor_findings?.trim())
-        return res.status(400).json({ success: false, message: 'test_id and doctor_findings are required.' });
+        if (!appointment_id || !patient_id || !staff_id || !target_clinic || !reason)
+            return res.status(400).json({
+                success: false,
+                message: 'appointment_id, patient_id, staff_id, target_clinic and reason are required.'
+            });
+
+        try {
+            await db.query(`
+                INSERT INTO referrals
+                    (appointment_id, patient_id, issued_by,
+                    target_clinic, consultant_name, urgency,
+                    referral_date, reason)
+                VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
+            `, [
+                appointment_id,
+                patient_id,
+                staff_id,
+                target_clinic,
+                consultant_name  || null,
+                urgency          || 'Routine',
+                reason
+            ]);
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    });
+
+
+
+    // FIX: now saves clinical_notes per test (uses existing column in medical_tests)
+    app.post('/api/doctor/order-tests', async (req, res) => {
+        const { appointment_id, patient_id, staff_id, tests } = req.body;
+        if (!appointment_id || !patient_id || !staff_id || !Array.isArray(tests) || !tests.length)
+            return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    
+        try {
+            const insertions = tests
+                .filter(t => t.test_name?.trim())
+                .map(t => db.query(
+                    `INSERT INTO medical_tests
+                        (appointment_id, patient_id, test_type, test_name, status, requested_by, clinical_notes, requested_at)
+                    VALUES (?, ?, ?, ?, 'requested', ?, ?, NOW())`,
+                    [
+                        appointment_id,
+                        patient_id,
+                        t.test_type     || 'Lab',
+                        t.test_name.trim(),
+                        staff_id,
+                        t.clinical_notes?.trim() || null,   // ← doctor's notes sent at order time
+                    ]
+                ));
+    
+            await Promise.all(insertions);
+            res.json({ success: true });
+        } catch (err) {
+            console.error('order-tests error:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    });
+    
+    
+    // ── POST /api/doctor/lab-findings ─────────────────────────────────────────────
+    // FIX: uses clinical_notes column (already exists in medical_tests table).
+    // The previous version referenced a non-existent 'doctor_findings' column.
+    // No migration needed — clinical_notes TEXT already exists.
+    app.post('/api/doctor/lab-findings', async (req, res) => {
+        const { test_id, patient_id, clinical_notes } = req.body;
+    
+        // Accept both field names for backwards compat (old code sent doctor_findings)
+        const notes = clinical_notes || req.body.doctor_findings;
+    
+        if (!test_id || !notes?.trim())
+            return res.status(400).json({ success: false, message: 'test_id and clinical notes are required.' });
+    
+        try {
+            const [result] = await db.query(
+                `UPDATE medical_tests
+                SET clinical_notes = ?, updated_at = NOW()
+                WHERE test_id = ? AND patient_id = ?`,
+                [notes.trim(), test_id, patient_id]
+            );
+    
+            if (!result.affectedRows)
+                return res.json({ success: false, message: 'Test not found or patient mismatch.' });
+    
+            res.json({ success: true });
+        } catch (err) {
+            console.error('lab-findings error:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    });
+    
+    
+    // ── GET /api/lab-results/:patientId ──────────────────────────────────────────
+    // UPDATE: now includes clinical_notes in the response so the frontend can show it
+    app.get('/api/lab-results/:patientId', async (req, res) => {
+        try {
+            const [rows] = await db.query(`
+                SELECT
+                    mt.test_id, mt.appointment_id, mt.patient_id,
+                    mt.test_type, mt.test_name, mt.status,
+                    mt.requested_by, mt.requested_at, mt.sample_collected_at,
+                    mt.clinical_notes,                          -- ← included now
+                    CONCAT(s.first_name, ' ', s.surname) AS doctor_name,
+                    tr.result_id, tr.summary AS result_summary,
+                    tr.file_path, tr.uploaded_at AS result_uploaded_at
+                FROM medical_tests mt
+                LEFT JOIN staff s     ON mt.requested_by = s.staff_id
+                LEFT JOIN test_results tr ON tr.test_id  = mt.test_id
+                WHERE mt.patient_id = ?
+                ORDER BY mt.test_id DESC
+            `, [req.params.patientId]);
+            res.json({ success: true, tests: rows });
+        } catch (err) {
+            console.error('lab-results error:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    });
+    
+    
+
+
+// ── 11. Update doctor profile ─────────────────────────────────────────────────
+app.post('/api/doctor/update-profile', async (req, res) => {
+    const { staff_id, first_name, surname, phone } = req.body;
+    if (!staff_id) return res.status(400).json({ success: false, message: 'staff_id required.' });
     try {
         await db.query(
-            `UPDATE medical_tests SET doctor_findings = ? WHERE test_id = ? AND patient_id = ?`,
-            [doctor_findings.trim(), test_id, patient_id]
+            'UPDATE staff SET first_name=?, surname=?, phone=? WHERE staff_id=?',
+            [first_name, surname, phone || null, staff_id]
         );
         res.json({ success: true });
     } catch (err) {
@@ -1738,12 +1676,37 @@ app.post('/api/doctor/lab-findings', async (req, res) => {
     }
 });
 
+
+// ── 12. Change password ───────────────────────────────────────────────────────
+app.post('/api/doctor/change-password', async (req, res) => {
+    const { staff_id, current, next } = req.body;
+    if (!staff_id || !current || !next)
+        return res.status(400).json({ success: false, message: 'All fields required.' });
+    try {
+        const [[account]] = await db.query(
+            'SELECT password_hash FROM user_account WHERE staff_id=? LIMIT 1',
+            [staff_id]
+        );
+        if (!account) return res.json({ success: false, message: 'Account not found.' });
+        const ok = await bcrypt.compare(current, account.password_hash);
+        if (!ok) return res.json({ success: false, message: 'Current password is incorrect.' });
+        const hash = await bcrypt.hash(next, 10);
+        await db.query('UPDATE user_account SET password_hash=? WHERE staff_id=?', [hash, staff_id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ── 13. Staff notifications ───────────────────────────────────────────────────
 app.get('/api/staff/notifications/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT notification_id, email_subject, message, status, sent_at
             FROM notifications
-            WHERE recipient_type='staff' AND staff_id=? AND status IN ('sent','delivered','opened')
+            WHERE recipient_type='staff' AND staff_id=?
+              AND status IN ('sent','delivered','opened')
             ORDER BY sent_at DESC LIMIT 50
         `, [req.params.staffId]);
         res.json({ success: true, notifications: rows });
@@ -1752,18 +1715,58 @@ app.get('/api/staff/notifications/:staffId', async (req, res) => {
     }
 });
 
-app.get('/api/doctor/feedback/:staffId', async (req, res) => {
+
+// ── 14. Get staff feedback ────────────────────────────────────────────────────
+app.get('/api/staff/feedback/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT feedback_id, rating, comment, submitted_at, created_at
-            FROM feedback WHERE doctor_id=?
-            ORDER BY COALESCE(submitted_at, created_at) DESC LIMIT 100
+            SELECT feedback_id, comments AS comment, date_submitted, status
+            FROM feedback
+            WHERE user_id = (
+                SELECT user_id FROM user_account WHERE staff_id=? LIMIT 1
+            )
+            ORDER BY date_submitted DESC LIMIT 50
         `, [req.params.staffId]);
         res.json({ success: true, feedback: rows });
     } catch (err) {
         res.json({ success: true, feedback: [] });
     }
 });
+
+
+// ── 15. Submit staff feedback ─────────────────────────────────────────────────
+app.post('/api/staff/feedback', async (req, res) => {
+    const { staff_id, comment } = req.body;
+    if (!staff_id || !comment?.trim())
+        return res.status(400).json({ success: false, message: 'staff_id and comment required.' });
+    try {
+        // Get user_id for this staff member
+        const [[ua]] = await db.query(
+            'SELECT user_id FROM user_account WHERE staff_id=? LIMIT 1',
+            [staff_id]
+        );
+        if (!ua) return res.json({ success: false, message: 'User account not found.' });
+
+        await db.query(
+            `INSERT INTO feedback (user_id, comments, date_submitted, status)
+             VALUES (?, ?, NOW(), 'new')`,
+            [ua.user_id, comment.trim()]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ONE-TIME MIGRATION — run this SQL once in your MySQL client
+//  to add the doctor_findings column if it doesn't exist yet:
+//
+//  ALTER TABLE medical_tests
+//    ADD COLUMN doctor_findings TEXT NULL AFTER clinical_notes;
+//
+// ═══════════════════════════════════════════════════════════════════════════
 
 //═════════════════════════════════════
 //  BACKEND API ADDITIONS — Add these routes to your existing server file
@@ -1794,7 +1797,698 @@ app.get('/api/doctor/feedback/:staffId', async (req, res) => {
 // GET /api/admin/check-email?email=xxx
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  PATIENT DASHBOARD — ALL ROUTES
+//  Replace your existing patient routes block with this entire file.
+//  Works with the updated PatientDashboard.jsx
+// ═══════════════════════════════════════════════════════════════════════════
 
+// ── Helper: barcode generator ─────────────────────────────────────────────────
+function generateBarcode() {
+    const ts  = Date.now().toString(36).toUpperCase();
+    const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `BHK-${ts}-${rnd}`;
+}
+
+// ── Helper: estimated time from token number ──────────────────────────────────
+async function calcEstimatedTime(tokenNo) {
+    try {
+        const [rows] = await db.query(
+            `SELECT setting_key, setting_value FROM system_settings
+             WHERE setting_key IN ('opd_start_hour','slot_duration_minutes')`
+        );
+        const cfg = {};
+        rows.forEach(r => { cfg[r.setting_key] = r.setting_value; });
+        const startHour   = parseInt(cfg.opd_start_hour)        || 8;
+        const slotMinutes = parseInt(cfg.slot_duration_minutes) || 10;
+        const startTotal  = startHour * 60 + (tokenNo - 1) * slotMinutes;
+        const endTotal    = startTotal + slotMinutes;
+        const fmt = (mins) => {
+            const h = Math.floor(mins / 60), m = mins % 60;
+            const hr = h % 12 || 12, ampm = h < 12 ? 'AM' : 'PM';
+            return `${String(hr).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ampm}`;
+        };
+        return `${fmt(startTotal)} – ${fmt(endTotal)}`;
+    } catch {
+        return null;
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  OPD SLOTS — capacity check (date-only mode, no individual slot picker)
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/opd-slots', async (req, res) => {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ success: false, message: 'date required' });
+    try {
+        const [settingRows] = await db.query(
+            `SELECT setting_key, setting_value FROM system_settings
+             WHERE setting_key IN ('opd_start_hour','opd_end_hour','slot_capacity','closed_dates','slot_duration_minutes')`
+        );
+        const cfg = {};
+        settingRows.forEach(r => { cfg[r.setting_key] = r.setting_value; });
+
+        const closedDates = (cfg.closed_dates || '').split(',').map(s => s.trim()).filter(Boolean);
+        if (closedDates.includes(date))
+            return res.json({ success: true, slots: [], closed: true });
+
+        const [[{ booked }]] = await db.query(
+            `SELECT COUNT(*) AS booked FROM appointments
+             WHERE appointment_day=? AND status NOT IN ('cancelled','no_show')`,
+            [date]
+        );
+
+        const MAX_PER_DAY = 60;
+        const remaining   = Math.max(0, MAX_PER_DAY - parseInt(booked));
+
+        res.json({
+            success:   true,
+            closed:    false,
+            booked:    parseInt(booked),
+            remaining,
+            capacity:  MAX_PER_DAY,
+            slots: [{ time_slot: 'All Day (FCFS)', capacity: MAX_PER_DAY, booked: parseInt(booked), remaining }]
+        });
+    } catch (err) {
+        console.error('OPD slots error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOK APPOINTMENT
+//  Date-only · FCFS token · 60/day max · auto-calculated time slot · email
+// ═══════════════════════════════════════════════════════════════════════════
+app.post('/api/book-appointment', async (req, res) => {
+    const { patientId, date, visitType = 'New' } = req.body;
+    if (!patientId || !date)
+        return res.status(400).json({ success: false, message: 'patientId and date are required.' });
+
+    try {
+        // 1. Closed date check
+        const [settingRows] = await db.query(
+            `SELECT setting_value FROM system_settings WHERE setting_key='closed_dates'`
+        );
+        const closedDates = (settingRows[0]?.setting_value || '').split(',').map(s => s.trim()).filter(Boolean);
+        if (closedDates.includes(date))
+            return res.json({ success: false, message: 'OPD is closed on this date.' });
+
+        // 2. Daily cap check (max 60)
+        const [[{ total }]] = await db.query(
+            `SELECT COUNT(*) AS total FROM appointments
+             WHERE appointment_day=? AND status NOT IN ('cancelled','no_show')`,
+            [date]
+        );
+        const MAX_PER_DAY = 60;
+        if (parseInt(total) >= MAX_PER_DAY)
+            return res.json({ success: false, message: `This date is fully booked (${MAX_PER_DAY}/day limit). Please choose another date.` });
+
+        // 3. Duplicate booking check
+        const [dupes] = await db.query(
+            `SELECT appointment_id FROM appointments
+             WHERE patient_id=? AND appointment_day=? AND status NOT IN ('cancelled','no_show') LIMIT 1`,
+            [patientId, date]
+        );
+        if (dupes.length)
+            return res.json({ success: false, message: 'You already have an appointment on this date.' });
+
+        // 4. Assign FCFS token
+        const tokenNo = parseInt(total) + 1;
+
+        // 5. Calculate start/end time from token position
+        const [cfgRows] = await db.query(
+            `SELECT setting_key, setting_value FROM system_settings
+             WHERE setting_key IN ('opd_start_hour','slot_duration_minutes')`
+        );
+        const cfg = {};
+        cfgRows.forEach(r => { cfg[r.setting_key] = r.setting_value; });
+        const startHour   = parseInt(cfg.opd_start_hour)        || 8;
+        const slotMinutes = parseInt(cfg.slot_duration_minutes) || 10;
+
+        const startTotalMin = startHour * 60 + (tokenNo - 1) * slotMinutes;
+        const endTotalMin   = startTotalMin + slotMinutes;
+        const toTimeStr = (mins) =>
+            `${String(Math.floor(mins / 60)).padStart(2,'0')}:${String(mins % 60).padStart(2,'0')}:00`;
+
+        const startTime = toTimeStr(startTotalMin);
+        const endTime   = toTimeStr(endTotalMin);
+
+        // 6. Insert appointment
+        const [result] = await db.query(
+            `INSERT INTO appointments
+                (patient_id, appointment_day, start_time, end_time, queue_no, visit_type, status, is_present, created_at)
+             VALUES (?,?,?,?,?,?,'booked',0,NOW())`,
+            [patientId, date, startTime, endTime, tokenNo, visitType]
+        );
+        const appointmentId = result.insertId;
+
+        // 7. Human-readable estimated time
+        const estimatedTime = await calcEstimatedTime(tokenNo);
+
+        // 8. Send confirmation email (non-blocking — never crashes the response)
+        sendBookingEmail(patientId, appointmentId, date, tokenNo, estimatedTime, visitType).catch(console.error);
+
+        res.json({ success: true, tokenNo, appointmentId, estimatedTime });
+
+    } catch (err) {
+        console.error('Book appointment error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOKING CONFIRMATION EMAIL
+// ═══════════════════════════════════════════════════════════════════════════
+async function sendBookingEmail(patientId, appointmentId, date, tokenNo, estimatedTime, visitType) {
+    try {
+        const [pRows] = await db.query(
+            `SELECT full_name, email, barcode, nic FROM patient WHERE patient_id=? LIMIT 1`,
+            [patientId]
+        );
+        if (!pRows.length || !pRows[0].email) return;
+        const { full_name, email, barcode, nic } = pRows[0];
+
+        const formattedDate = new Date(date).toLocaleDateString('en-GB', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        const rows = [
+            ['Date',            formattedDate],
+            ['Estimated Time',  estimatedTime || 'Determined on arrival'],
+            ['Token Number',    `#${tokenNo}`],
+            ['Visit Type',      visitType],
+            ['Patient Barcode', barcode || '—'],
+            ['NIC',             nic     || '—'],
+        ];
+
+        const html = `
+<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+<div style="max-width:520px;margin:32px auto;background:white;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+
+  <div style="background:#0f172a;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:34px;height:34px;background:#2563eb;border-radius:8px;font-size:20px;font-weight:900;color:white;display:flex;align-items:center;justify-content:center;">+</div>
+      <div>
+        <div style="color:white;font-size:11px;font-weight:700;letter-spacing:.5px;">BASE HOSPITAL, KIRIBATHGODA</div>
+        <div style="color:#475569;font-size:9px;margin-top:1px;">Base Hospital, Kiribathgoda· Sri Lanka</div>
+      </div>
+    </div>
+    <div style="color:#22c55e;font-size:10px;font-weight:700;letter-spacing:1px;">✓ APPOINTMENT CONFIRMED</div>
+  </div>
+  <div style="height:3px;background:linear-gradient(90deg,#2563eb,#7c3aed);"></div>
+
+  <div style="background:#eff6ff;padding:28px 28px 20px;text-align:center;border-bottom:1px solid #dbeafe;">
+    <div style="font-size:11px;color:#3b82f6;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Your Queue Token</div>
+    <div style="font-size:72px;font-weight:900;color:#1e40af;line-height:1;letter-spacing:-3px;">#${tokenNo}</div>
+    <div style="font-size:11px;color:#3b82f6;margin-top:8px;">First Come, First Served · OPD System</div>
+  </div>
+
+  <div style="padding:24px 28px;">
+    <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">Dear ${full_name},</div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.6;">Your OPD appointment has been confirmed. Please arrive on time and present this email at the nursing station.</div>
+
+    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:20px;">
+      ${rows.map(([l,v],i) => `
+      <div style="padding:10px 16px;background:${i%2===0?'#f8fafc':'white'};border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:#64748b;font-weight:600;">${l}</span>
+        <span style="font-size:12px;color:#0f172a;font-weight:700;">${v}</span>
+      </div>`).join('')}
+    </div>
+
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:8px;">
+      <div style="font-size:11px;color:#78350f;font-weight:700;margin-bottom:5px;">ℹ️ Important Instructions</div>
+      <ul style="font-size:11px;color:#92400e;margin:0;padding-left:16px;line-height:1.9;">
+        <li>Arrive at least 10 minutes before your estimated time.</li>
+        <li>Bring this email or your patient barcode card to the OPD counter.</li>
+        <li>Bring all previous medical records and reports.</li>
+        <li>Your actual call time may vary depending on earlier patients.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="background:#f8fafc;padding:14px 28px;border-top:1px solid #e2e8f0;text-align:center;">
+    <div style="font-size:10px;color:#94a3b8;">SmartOPD · Base Hospital, Kiribathgoda · Ministry of Health, Sri Lanka</div>
+    <div style="font-size:9px;color:#cbd5e1;margin-top:3px;">This is an automated email. Please do not reply.</div>
+  </div>
+</div>
+</body></html>`;
+
+        await transporter.sendMail({
+            from:    process.env.SMTP_USER || 'SmartOPD <bhagya0913@gmail.com>',
+            to:      email,
+            subject: `✓ OPD Appointment Confirmed — Token #${tokenNo} · ${date}`,
+            html
+        });
+
+        // Log to notifications table (fail silently if table doesn't exist)
+        await db.query(
+            `INSERT INTO notifications (patient_id, recipient_type, email_subject, message, status, sent_at)
+             VALUES (?, 'patient', ?, ?, 'sent', NOW())`,
+            [
+                patientId,
+                `OPD Appointment Confirmed — Token #${tokenNo}`,
+                `Your appointment on ${date} is confirmed. Token: #${tokenNo}. Estimated time: ${estimatedTime || 'TBD'}.`
+            ]
+        ).catch(() => {});
+
+    } catch (err) {
+        console.error('Booking email error:', err);
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MY APPOINTMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/my-appointments', async (req, res) => {
+    const { patientId } = req.query;
+    if (!patientId) return res.status(400).json({ success: false, message: 'patientId required' });
+    try {
+        const [rows] = await db.query(`
+            SELECT appointment_id, patient_id, doctor_id, appointment_day,
+                   start_time, end_time, queue_no, visit_type, status, is_present,
+                   created_at, completed_at,
+                   CONCAT(DATE_FORMAT(start_time,'%h:%i'),' ',
+                          IF(HOUR(start_time)<12,'AM','PM'),
+                          ' – ',
+                          DATE_FORMAT(end_time,'%h:%i'),' ',
+                          IF(HOUR(end_time)<12,'AM','PM')) AS time_slot
+            FROM appointments
+            WHERE patient_id=? AND status != 'cancelled'
+            ORDER BY appointment_day DESC, start_time ASC
+        `, [patientId]);
+        res.json({ success: true, appointments: rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CANCEL APPOINTMENT
+// ═══════════════════════════════════════════════════════════════════════════
+app.delete('/api/cancel-appointment/:id', async (req, res) => {
+    try {
+        const [result] = await db.query(
+            `UPDATE appointments SET status='cancelled' WHERE appointment_id=? AND status='booked'`,
+            [req.params.id]
+        );
+        if (!result.affectedRows)
+            return res.json({ success: false, message: 'Appointment not found or already processed.' });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MEDICAL RECORDS  (clinical history / treatment records)
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/medical-records/:patientId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                tr.record_id, tr.appointment_id, tr.patient_id,
+                tr.consultation_day, tr.weight_kg, tr.height_cm,
+                tr.chief_complaint, tr.clinical_findings, tr.diagnosis,
+                tr.treatment_details, tr.prescription_details,
+                tr.follow_up_date, tr.created_by,
+                CONCAT(s.first_name, ' ', s.surname) AS doctor_name
+            FROM treatment_records tr
+            LEFT JOIN staff s ON tr.created_by = s.staff_id
+            WHERE tr.patient_id = ?
+            ORDER BY tr.consultation_day DESC, tr.record_id DESC
+        `, [req.params.patientId]);
+        res.json({ success: true, records: rows });
+    } catch (err) {
+        console.error('medical-records error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PRESCRIPTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/prescriptions/:patientId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                tr.record_id, tr.appointment_id,
+                tr.consultation_day, tr.prescription_details,
+                pf.fulfillment_id, pf.fulfilled_at,
+                pf.notes AS fulfillment_notes,
+                CONCAT(s.first_name, ' ', s.surname) AS pharmacist_name
+            FROM treatment_records tr
+            LEFT JOIN prescription_fulfillment pf ON pf.prescription_id = tr.record_id
+            LEFT JOIN staff s ON pf.pharmacist_id = s.staff_id
+            WHERE tr.patient_id = ?
+              AND tr.prescription_details IS NOT NULL
+              AND TRIM(tr.prescription_details) != ''
+            ORDER BY tr.consultation_day DESC, tr.record_id DESC
+        `, [req.params.patientId]);
+        res.json({ success: true, prescriptions: rows });
+    } catch (err) {
+        console.error('prescriptions error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  LAB / DIAGNOSTIC TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/lab-results/:patientId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                mt.test_id, mt.appointment_id, mt.patient_id,
+                mt.test_type, mt.test_name, mt.status,
+                mt.requested_by, mt.requested_at, mt.sample_collected_at,
+                CONCAT(s.first_name, ' ', s.surname) AS doctor_name,
+                tr.result_id, tr.summary AS result_summary,
+                tr.file_path, tr.uploaded_at
+            FROM medical_tests mt
+            LEFT JOIN staff s     ON mt.requested_by = s.staff_id
+            LEFT JOIN test_results tr ON tr.test_id  = mt.test_id
+            WHERE mt.patient_id = ?
+            ORDER BY mt.test_id DESC
+        `, [req.params.patientId]);
+        res.json({ success: true, tests: rows });
+    } catch (err) {
+        console.error('lab-results error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  LAB TEST FILE DOWNLOAD
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/test-file/:testId', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT file_path FROM test_results WHERE test_id=? LIMIT 1`,
+            [req.params.testId]
+        );
+        if (!rows.length)
+            return res.status(404).json({ message: 'File not found.' });
+        const filePath = rows[0].file_path;
+        if (!fs.existsSync(filePath))
+            return res.status(404).json({ message: 'File missing on server.' });
+        res.download(filePath, path.basename(filePath));
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  REFERRALS
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/referrals/:patientId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                r.referral_id, r.appointment_id, r.patient_id,
+                r.issued_by, r.referred_to_id, r.consultant_name,
+                r.target_clinic, r.urgency, r.referral_date, r.reason,
+                CONCAT(s.first_name, ' ', s.surname) AS issued_by_name
+            FROM referrals r
+            LEFT JOIN staff s ON r.issued_by = s.staff_id
+            WHERE r.patient_id = ?
+            ORDER BY r.referral_date DESC, r.referral_id DESC
+        `, [req.params.patientId]);
+        res.json({ success: true, referrals: rows });
+    } catch (err) {
+        console.error('referrals error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/notifications/:patientId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT notification_id, email_subject, message, status, sent_at
+            FROM notifications
+            WHERE patient_id = ?
+              AND recipient_type = 'patient'
+              AND status IN ('sent','delivered','opened')
+            ORDER BY sent_at DESC
+        `, [req.params.patientId]);
+        res.json({ success: true, notifications: rows });
+    } catch (err) {
+        // ── FIX: if notifications table doesn't exist yet, return empty rather than crashing
+        console.warn('notifications fetch error (table may not exist yet):', err.message);
+        res.json({ success: true, notifications: [] });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UPDATE PROFILE
+// ═══════════════════════════════════════════════════════════════════════════
+app.post('/api/update-profile', async (req, res) => {
+    const {
+        patientId, full_name, nic, dob, gender, civil_status, blood_group,
+        phone, address_line1, address, emergency_contact, chronic_conditions, allergies
+    } = req.body;
+
+    if (!patientId)
+        return res.status(400).json({ success: false, message: 'patientId required' });
+
+    try {
+        // Keep both address columns in sync; prefer address_line1 if both supplied
+        const addr = address_line1 || address || null;
+
+        const [result] = await db.query(`
+            UPDATE patient
+            SET full_name=?, nic=?, dob=?, gender=?, civil_status=?, blood_group=?,
+                phone=?, address_line1=?, address=?,
+                emergency_contact=?, chronic_conditions=?, allergies=?
+            WHERE patient_id=?
+        `, [
+            full_name          || null,
+            nic                || null,
+            dob                || null,
+            gender             || null,
+            civil_status       || null,
+            blood_group        || null,
+            phone              || null,
+            addr, addr,
+            emergency_contact  || null,
+            chronic_conditions || null,
+            allergies          || null,
+            patientId
+        ]);
+
+        if (!result.affectedRows)
+            return res.json({ success: false, message: 'Patient not found.' });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('update-profile error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FEEDBACK
+//  FIX: removed `rating` as required field — dashboard sends null for rating
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/feedback/:patientId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT feedback_id, rating, comment, submitted_at, created_at
+            FROM feedback
+            WHERE patient_id = ?
+            ORDER BY COALESCE(submitted_at, created_at) DESC
+        `, [req.params.patientId]);
+        res.json({ success: true, feedback: rows });
+    } catch (err) {
+        // Fail silently — feedback table may not exist in all deployments
+        console.warn('feedback fetch error:', err.message);
+        res.json({ success: true, feedback: [] });
+    }
+});
+
+app.post('/api/feedback', async (req, res) => {
+    const { patientId, rating, comment } = req.body;
+
+    // ── FIX: was `if (!patientId || !rating)` — rating can legitimately be null/0
+    if (!patientId)
+        return res.status(400).json({ success: false, message: 'patientId required.' });
+    if (!comment || !comment.trim())
+        return res.status(400).json({ success: false, message: 'Comment is required.' });
+
+    try {
+        await db.query(
+            `INSERT INTO feedback (patient_id, rating, comment, submitted_at)
+             VALUES (?, ?, ?, NOW())`,
+            [patientId, rating || null, comment.trim()]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('feedback post error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FAMILY MEMBERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// GET /api/family-members?email=xxx
+app.get('/api/family-members', async (req, res) => {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ success: false, message: 'email required' });
+    try {
+        const [uRows] = await db.query(
+            `SELECT patient_id FROM user_account
+             WHERE username=? AND patient_id IS NOT NULL LIMIT 1`,
+            [email]
+        );
+        if (!uRows.length) return res.json({ success: true, members: [] });
+        const primaryId = uRows[0].patient_id;
+
+        const cols = `patient_id, barcode, full_name, nic, dob, gender, civil_status,
+                      blood_group, phone, address_line1, address, emergency_contact,
+                      chronic_conditions, allergies, email, is_active`;
+
+        const [primaryRows] = await db.query(
+            `SELECT ${cols} FROM patient WHERE patient_id=? AND is_active=1`, [primaryId]
+        );
+        const [familyRows] = await db.query(
+            `SELECT p.patient_id, p.barcode, p.full_name, p.nic, p.dob, p.gender,
+                    p.civil_status, p.blood_group, p.phone, p.address_line1, p.address,
+                    p.emergency_contact, p.chronic_conditions, p.allergies, p.email,
+                    p.is_active, pf.relation
+             FROM patient_family pf
+             JOIN patient p ON pf.member_patient_id = p.patient_id
+             WHERE pf.primary_patient_id=? AND p.is_active=1
+             ORDER BY pf.id ASC`,
+            [primaryId]
+        );
+        res.json({ success: true, members: [...primaryRows, ...familyRows] });
+    } catch (err) {
+        console.error('family-members error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// POST /api/add-family-member
+app.post('/api/add-family-member', async (req, res) => {
+    const { email, full_name, dob, gender, relation, nic, phone } = req.body;
+    if (!email || !full_name || !dob || !gender)
+        return res.status(400).json({ success: false, message: 'Full name, DOB and gender are required.' });
+
+    const conn = await db.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        const [uRows] = await conn.query(
+            `SELECT patient_id FROM user_account
+             WHERE username=? AND patient_id IS NOT NULL LIMIT 1`,
+            [email]
+        );
+        if (!uRows.length) {
+            await conn.rollback(); conn.release();
+            return res.status(404).json({ success: false, message: 'No account found for this email.' });
+        }
+        const primaryPatientId = uRows[0].patient_id;
+
+        if (nic && nic.trim()) {
+            const [existNic] = await conn.query(
+                `SELECT patient_id FROM patient WHERE nic=? LIMIT 1`, [nic.trim()]
+            );
+            if (existNic.length) {
+                await conn.rollback(); conn.release();
+                return res.json({ success: false, message: 'A patient with this NIC is already registered.' });
+            }
+        }
+
+        const normalizedPhone = phone?.trim()
+            ? (phone.trim().startsWith('0') ? '+94' + phone.trim().slice(1) : phone.trim())
+            : null;
+
+        const barcode = generateBarcode();
+        const [result] = await conn.query(
+            `INSERT INTO patient (barcode, full_name, dob, gender, nic, phone, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, 1)`,
+            [barcode, full_name.trim(), dob, gender, nic?.trim() || null, normalizedPhone]
+        );
+        const newPatientId = result.insertId;
+
+        await conn.query(
+            `INSERT INTO patient_family (primary_patient_id, member_patient_id, relation)
+             VALUES (?, ?, ?)`,
+            [primaryPatientId, newPatientId, relation?.trim() || null]
+        );
+
+        await conn.commit();
+        res.json({ success: true, barcode, patientId: newPatientId });
+    } catch (err) {
+        await conn.rollback();
+        console.error('add-family-member error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    } finally {
+        conn.release();
+    }
+});
+
+// DELETE /api/remove-family-member
+app.delete('/api/remove-family-member', async (req, res) => {
+    const { email, memberPatientId } = req.body;
+    if (!email || !memberPatientId)
+        return res.status(400).json({ success: false, message: 'email and memberPatientId required.' });
+    try {
+        const [uRows] = await db.query(
+            `SELECT patient_id FROM user_account
+             WHERE username=? AND patient_id IS NOT NULL LIMIT 1`,
+            [email]
+        );
+        if (!uRows.length)
+            return res.status(404).json({ success: false, message: 'Account not found.' });
+
+        const primaryId = uRows[0].patient_id;
+        if (parseInt(memberPatientId) === parseInt(primaryId))
+            return res.status(400).json({ success: false, message: 'Cannot remove the primary account.' });
+
+        await db.query(
+            `DELETE FROM patient_family
+             WHERE primary_patient_id=? AND member_patient_id=?`,
+            [primaryId, memberPatientId]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('remove-family-member error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DB SEED — run once to ensure system_settings rows exist
+//  You can paste this directly into MySQL / phpMyAdmin
+// ═══════════════════════════════════════════════════════════════════════════
+/*
+INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES
+  ('opd_start_hour',        '8'),
+  ('opd_end_hour',          '18'),
+  ('slot_duration_minutes', '10'),
+  ('closed_dates',          '');
+*/
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: Add new staff member (with professional email & password)
 // POST /api/admin/add-staff
