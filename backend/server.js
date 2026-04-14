@@ -484,7 +484,7 @@ app.post('/api/login', async (req, res) => {
             const [patientRows] = await db.query(
                 `SELECT patient_id, barcode, full_name, nic, dob, gender, civil_status,
                         blood_group, phone, address_line1, address, emergency_contact,
-                        chronic_conditions, allergies, email, is_active
+                        chronic_conditions, allergies,height_cm, weight_kg,  email, is_active
                  FROM patient WHERE patient_id = ? AND is_active = 1 LIMIT 1`,
                 [account.patient_id]
             );
@@ -1316,23 +1316,56 @@ app.get('/api/doctor/patient-lookup', async (req, res) => {
 
     const cols = `patient_id, barcode, full_name, nic, dob, gender, blood_group,
                   phone, allergies, chronic_conditions, address_line1, address,
-                  emergency_contact, civil_status`;
+                  emergency_contact, civil_status, height_cm, weight_kg`;
+
     try {
-        let rows;
+        let rows = [];
+
         if (mode === 'barcode') {
+            // Barcode search: exact match, return single patient
             [rows] = await db.query(
                 `SELECT ${cols} FROM patient WHERE barcode = ? AND is_active = 1 LIMIT 1`,
                 [q.trim()]
             );
         } else {
-            // NIC — may match multiple family-account patients
-            [rows] = await db.query(
+            // NIC search: find patient(s) with this NIC, then also include their family members
+            const [patients] = await db.query(
                 `SELECT ${cols} FROM patient WHERE nic = ? AND is_active = 1 ORDER BY patient_id ASC`,
                 [q.trim()]
             );
+
+            if (patients.length === 0) {
+                rows = [];
+            } else {
+                // Usually one patient, but loop in case of multiple (though NIC should be unique)
+                const allPatients = [];
+
+                for (const patient of patients) {
+                    // Add the patient itself with relation 'Self'
+                    allPatients.push({ ...patient, relation: 'Self' });
+
+                    // Find family members linked to this patient (primary account holder)
+                    const [members] = await db.query(`
+                        SELECT p.patient_id, p.barcode, p.full_name, p.nic, p.dob, p.gender,
+                               p.blood_group, p.phone, p.allergies, p.chronic_conditions,
+                               p.address_line1, p.address, p.emergency_contact, p.civil_status, p.height_cm, p.weight_kg,
+                               pf.relation
+                        FROM patient_family pf
+                        JOIN patient p ON pf.member_patient_id = p.patient_id
+                        WHERE pf.primary_patient_id = ? AND p.is_active = 1
+                        ORDER BY pf.relation, p.full_name
+                    `, [patient.patient_id]);
+
+                    allPatients.push(...members);
+                }
+
+                rows = allPatients;
+            }
         }
+
         res.json({ success: true, patients: rows });
     } catch (err) {
+        console.error('patient-lookup error:', err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
@@ -2260,7 +2293,7 @@ app.get('/api/notifications/:patientId', async (req, res) => {
 app.post('/api/update-profile', async (req, res) => {
     const {
         patientId, full_name, nic, dob, gender, civil_status, blood_group,
-        phone, address_line1, address, emergency_contact, chronic_conditions, allergies
+        phone, address_line1, address, emergency_contact, chronic_conditions, allergies, height_cm, weight_kg
     } = req.body;
 
     if (!patientId)
@@ -2274,7 +2307,7 @@ app.post('/api/update-profile', async (req, res) => {
             UPDATE patient
             SET full_name=?, nic=?, dob=?, gender=?, civil_status=?, blood_group=?,
                 phone=?, address_line1=?, address=?,
-                emergency_contact=?, chronic_conditions=?, allergies=?
+                emergency_contact=?, chronic_conditions=?, allergies=?,  height_cm=?, weight_kg=?
             WHERE patient_id=?
         `, [
             full_name          || null,
@@ -2288,6 +2321,7 @@ app.post('/api/update-profile', async (req, res) => {
             emergency_contact  || null,
             chronic_conditions || null,
             allergies          || null,
+             height_cm || null, weight_kg || null,
             patientId
         ]);
 

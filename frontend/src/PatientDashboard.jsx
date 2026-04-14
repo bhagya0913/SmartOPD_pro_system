@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './common.css';
 import './PatientDashboard.css';
+import MedicalHistory from './MedicalHistory';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
     Home, User, Users, Calendar, Clock, FileText, Pill, FlaskConical,
@@ -1412,6 +1413,8 @@ function ProfileEdit({ user, setUser }) {
             address: user.address_line1 || user.address || '',
             emergency_contact: user.emergency_contact || '',
             chronic_conditions: user.chronic_conditions || '', allergies: user.allergies || '',
+            height_cm: user.height_cm || '',
+weight_kg: user.weight_kg || ''
         });
     }, [user]);
 
@@ -1479,6 +1482,24 @@ function ProfileEdit({ user, setUser }) {
                             <div className="ps-field wide"><label>Address</label>{editing ? <textarea className="custom-input textarea" rows={2} value={form.address || ''} onChange={set('address')} /> : <div className="ps-value">{form.address || <span className="empty-val">None</span>}</div>}</div>
                             <div className="ps-field wide"><label>Chronic Conditions</label>{editing ? <textarea className="custom-input textarea" rows={2} value={form.chronic_conditions || ''} onChange={set('chronic_conditions')} /> : <div className="ps-value">{form.chronic_conditions || <span className="empty-val">None</span>}</div>}</div>
                             <div className="ps-field wide"><label>Known Allergies</label>{editing ? <textarea className="custom-input textarea" rows={2} value={form.allergies || ''} onChange={set('allergies')} /> : <div className={`ps-value ${form.allergies ? 'allergy' : ''}`}>{form.allergies || <span className="empty-val">No known allergies</span>}</div>}</div>
+                            <div className="ps-field">
+    <label>Height (cm)</label>
+    {editing ? (
+        <input type="number" step="0.1" className="custom-input"
+            value={form.height_cm || ''} onChange={set('height_cm')} />
+    ) : (
+        <div className="ps-value">{form.height_cm ? `${form.height_cm} cm` : '—'}</div>
+    )}
+</div>
+<div className="ps-field">
+    <label>Weight (kg)</label>
+    {editing ? (
+        <input type="number" step="0.1" className="custom-input"
+            value={form.weight_kg || ''} onChange={set('weight_kg')} />
+    ) : (
+        <div className="ps-value">{form.weight_kg ? `${form.weight_kg} kg` : '—'}</div>
+    )}
+</div>
                         </div>
                     </div>
                 </div>
@@ -1608,10 +1629,7 @@ export default function PatientDashboard({ user, setUser }) {
     const menuItems = [
         { icon: Home,          label: 'Home',             path: '/patient-dashboard' },
         { icon: Calendar,      label: 'Appointments',     path: '/patient-dashboard/appointments' },
-        { icon: FileText,      label: 'Medical History',  path: '/patient-dashboard/medical-records' },
-        { icon: Pill,          label: 'Prescriptions',    path: '/patient-dashboard/prescriptions' },
-        { icon: FlaskConical,  label: 'Diagnostic Tests', path: '/patient-dashboard/lab-results' },
-        { icon: Share2,        label: 'Referrals',        path: '/patient-dashboard/referrals' },
+        { icon: ClipboardList, label: 'Medical History',  path: '/patient-dashboard/medical-history' },
         { icon: User,          label: 'My Profile',       path: '/patient-dashboard/profile' },
         { icon: Users,         label: 'Other Accounts',   path: '/patient-dashboard/family' },
         { icon: Bell,          label: 'Notifications',    path: '/patient-dashboard/notifications' },
@@ -1712,11 +1730,11 @@ export default function PatientDashboard({ user, setUser }) {
                                 }}
                             />
                         } />
-                        <Route path="medical-records" element={<MedicalRecords user={user} />} />
-                        <Route path="prescriptions"   element={<Prescriptions  user={user} />} />
-                        <Route path="lab-results"     element={<LabResults     user={user} />} />
-                        <Route path="referrals"       element={<Referrals      user={user} />} />
-                        <Route path="profile"         element={<ProfileEdit    user={user} setUser={setUser} />} />
+                        <Route path="medical-records" element={<MedicalHistory user={user} />} />
+                        <Route path="prescriptions"   element={<MedicalHistory user={user} />} />
+                        <Route path="lab-results"     element={<MedicalHistory user={user} />} />
+                        <Route path="referrals"       element={<MedicalHistory user={user} />} />
+                        <Route path="medical-history" element={<MedicalHistory user={user} />} /><Route path="profile"         element={<ProfileEdit    user={user} setUser={setUser} />} />
                         <Route path="family"          element={<FamilySection  user={user} setUser={setUser} />} />
                         <Route path="notifications"   element={<Notifications  user={user} />} />
                         <Route path="feedback"        element={<Feedback       user={user} />} />

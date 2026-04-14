@@ -13,6 +13,7 @@ import DoctorDashboard from './DoctorDashboard';
 import PharmacistDashboard from './PharmacistDashboard';
 import LabDashboard from './LabDashboard';
 
+
 function App() {
     // 1. Correct State Initialization (INSIDE the component)
     const [user, setUser] = useState(() => {

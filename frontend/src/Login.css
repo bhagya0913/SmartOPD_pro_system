@@ -16,6 +16,7 @@
     align-items: stretch;
     overflow: hidden;
     font-family: 'Plus Jakarta Sans', sans-serif;
+    background: url('/smartopd_bg.jpg') center center / cover no-repeat fixed;
     background: #0f172a;  /* fallback */
 }
 

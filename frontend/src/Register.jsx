@@ -321,7 +321,7 @@ export default function Register() {
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <div className="register-screen" style={{ backgroundImage: "url('/background.jpg')" }}>
+        <div className="register-screen" style={{ backgroundImage: "url('/smartopd_bg.jpg')" }}>
             {/* OTP modal */}
             {modalState === 'otp' && (
                 <OtpModal
@@ -342,14 +342,17 @@ export default function Register() {
             )}
 
             <div className="register-container">
-                <div className="reg-brand">
-                    <div className="reg-logo-box"><Activity size={36} color="white" /></div>
-                    <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', margin: '0' }}>SmartOPD</h1>
-                    <p style={{ color: '#4b5563' }}>Base Hospital, Kiribathgoda</p>
-                </div>
-
                 <div className="reg-card">
-                    <h2 className="reg-title">Patient Registration</h2>
+                    {/* Logo + SmartOPD title inside the card */}
+                    <div className="reg-card-header">
+                        <div className="reg-logo-box">
+                            <Activity size={36} color="white" />
+                        </div>
+                        <h2 className="reg-title">SmartOPD</h2>
+                        <p className="reg-subtitle">Base Hospital, Kiribathgoda</p>
+                        <div className="reg-divider"></div>
+                        <p className="reg-section-label">Patient Registration</p>
+                    </div>
 
                     <form onSubmit={handleSubmit}>
                         <div className="reg-form-grid">

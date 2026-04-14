@@ -52,8 +52,8 @@ function AllergyAlert({ allergies }) {
 // ─── PATIENT HEALTH SUMMARY CARD ──────────────────────────────────────────────
 function PatientHealthCard({ patient }) {
     const age    = calcAge(patient.dob);
-    const weight = patient.latest_weight_kg;
-    const height = patient.latest_height_cm;
+    const weight = patient.weight_kg;
+    const height = patient.height_cm;
 
     return (
         <div className="doc-health-card">
@@ -81,7 +81,6 @@ function PatientHealthCard({ patient }) {
                     <div className="doc-health-facts">
                         <div className="doc-health-fact"><span className="doc-hf-label">Weight</span><span className="doc-hf-value">{weight ? `${weight} kg` : '—'}</span></div>
                         <div className="doc-health-fact"><span className="doc-hf-label">Height</span><span className="doc-hf-value">{height ? `${height} cm` : '—'}</span></div>
-                        <div className="doc-health-fact"><span className="doc-hf-label">BMI</span><span className="doc-hf-value">{weight && height ? (weight / Math.pow(height / 100, 2)).toFixed(1) : '—'}</span></div>
                         <div className="doc-health-fact"><span className="doc-hf-label">Blood Group</span><span className="doc-hf-value" style={{ color: '#dc2626', fontWeight: 700 }}>{patient.blood_group || '—'}</span></div>
                     </div>
                 </div>
@@ -160,7 +159,7 @@ function PatientLookup({ onSelect }) {
         finally { setLoading(false); }
     }, []);
 
-    const selectWithVitals = useCallback(async (p) => {
+    const selectWithVitals = useCallback(async (p) => { {/*
         try {
             const r = await fetch(`${API}/doctor/patient-history/${p.patient_id}`);
             const rows = await r.json();
@@ -168,7 +167,7 @@ function PatientLookup({ onSelect }) {
                 const latest = rows[0];
                 p = { ...p, latest_weight_kg: latest.weight_kg || null, latest_height_cm: latest.height_cm || null };
             }
-        } catch { /* ok */ }
+        } catch   */ }
         onSelect(p);
     }, [onSelect]);
 
@@ -261,6 +260,7 @@ function PatientLookup({ onSelect }) {
                                         {p.gender      && <span>{p.gender}</span>}
                                         {p.blood_group && <span className="lk-blood">{p.blood_group}</span>}
                                         {p.nic         && <span className="lk-nic-chip">{p.nic}</span>}
+                                        {p.relation && <span className="lk-relation">{p.relation}</span>}
                                         <span className="lk-bc-chip">{p.barcode}</span>
                                     </div>
                                     {p.allergies && p.allergies.toLowerCase() !== 'none' && (

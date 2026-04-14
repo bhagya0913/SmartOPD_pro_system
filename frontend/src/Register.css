@@ -4,7 +4,9 @@
 
 .register-screen {
     min-height: 100vh;
-    background-color: #f0f2f5;
+    background: url('/smartopd_bg.jpg') center center / cover no-repeat fixed;
+    background-color: #0f172a; /* fallback */
+  
     padding: 3rem 1rem;
     font-family: 'Inter', sans-serif;
     display: flex;
@@ -487,3 +489,51 @@
 }
 .btn-go-login:hover  { background: #059669; }
 .btn-go-login:active { transform: scale(0.98); }
+
+.reg-card-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.reg-logo-box {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #1a3a6b, #2563eb);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.75rem;
+    box-shadow: 0 6px 16px rgba(37,99,235,.25);
+}
+
+.reg-title {
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 0.2rem;
+    letter-spacing: -0.02em;
+}
+
+.reg-subtitle {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0 0 1rem;
+}
+
+.reg-divider {
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, #2563eb, #a5b4fc);
+    margin: 0.75rem auto 1rem;
+    border-radius: 2px;
+}
+
+.reg-section-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 1rem;
+}
