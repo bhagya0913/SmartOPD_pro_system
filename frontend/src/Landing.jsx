@@ -47,7 +47,8 @@ export default function Landing() {
                         SmartOPD System
                     </h2>
                     <p className="hero-subtitle">
-                        Experience a seamless healthcare journey. Book appointments, and access your medical records instantly.
+                       OPD (Outpatient Department) Management System to experience a seamless healthcare journey, 
+                       book appointments, and access your medical records instantly.
                     </p>
                 </div>
 
@@ -102,14 +103,14 @@ export default function Landing() {
                             <Phone className="w-5 h-5 text-blue-600 mt-1" />
                             <div className="info-content">
                                 <h4>Emergency & General</h4>
-                                <p>+94 11 291 1261<br />Emergency: 1990</p>
+                                <p>+94 11 291 1493<br />Emergency: 1990</p>
                             </div>
                         </div>
                         <div className="info-item">
                             <Mail className="w-5 h-5 text-blue-600 mt-1" />
                             <div className="info-content">
-                                <h4>Email Support</h4>
-                                <p>info@kiribathgoda.health.gov.lk</p>
+                                <h4>Contact us on Facebook</h4>
+                                <p>Base Hospital - Kiribathgoda</p>
                             </div>
                         </div>
                     </div>

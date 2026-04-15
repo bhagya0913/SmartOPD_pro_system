@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import './common.css';
 import './PatientDashboard.css';
 import MedicalHistory from './MedicalHistory';
@@ -681,8 +681,8 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
     const [dayStatus,    setDayStatus]    = useState(null);
     const [filter,       setFilter]       = useState('all');   // all | booked | completed | cancelled
     const today = new Date().toISOString().split('T')[0];
+    const [selectedAppt, setSelectedAppt] = useState(null);
 
-    const fetchAppts = useCallback(async () => {
         const pid = getPid(user); if (!pid) return;
         try {
             const r = await fetch(`${API}/my-appointments?patientId=${pid}`);
@@ -710,6 +710,8 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
             .catch(() => setDayStatus({ error: 'Cannot reach server.' }))
             .finally(() => setChecking(false));
     }, [selectedDate]);
+
+    
 
     const handleBook = async (e) => {
         e.preventDefault();
@@ -1520,7 +1522,7 @@ function FamilySection({ user, setUser }) {
 
     const userEmail    = user?.email || user?.username || '';
     const primaryLogin = user?._primaryLogin || userEmail;
-
+    
     const fetchMembers = useCallback(async () => {
         if (!userEmail) { setLoading(false); return; }
         setLoading(true);
@@ -1625,7 +1627,7 @@ export default function PatientDashboard({ user, setUser }) {
     const location = useLocation();
     const [menuOpen,       setMenuOpen]       = useState(false);
     const [myAppointments, setMyAppointments] = useState([]);
-
+    const mainRef = useRef(null);
     const menuItems = [
         { icon: Home,          label: 'Home',             path: '/patient-dashboard' },
         { icon: Calendar,      label: 'Appointments',     path: '/patient-dashboard/appointments' },
@@ -1653,6 +1655,12 @@ export default function PatientDashboard({ user, setUser }) {
         }
         fetchAppointments();
     }, [user, setUser, navigate, fetchAppointments]);
+
+    useEffect(() => {
+        if (mainRef.current) {
+            mainRef.current.scrollTop = 0;
+        }
+    }, [location.pathname]);
 
     const handleLogout = () => {
         localStorage.removeItem('hospital_user');
@@ -1712,7 +1720,7 @@ export default function PatientDashboard({ user, setUser }) {
                     </div>
                 </aside>
 
-                <main className="main-content">
+                <main className="main-content" ref={mainRef}>
                     <Routes>
                         <Route index element={
                             <DashboardHome

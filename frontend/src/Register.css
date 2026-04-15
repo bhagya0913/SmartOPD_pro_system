@@ -14,6 +14,7 @@
     align-items: center;
     background-size: cover;
     background-position: center;
+    overflow-y: scroll;
 }
 
 .register-container {
@@ -265,7 +266,7 @@
     animation: slideUp 0.3s ease;
     text-align: center;
     max-height: 90vh;
-    overflow-y: auto;
+    overflow-y: scroll;
 }
 @keyframes slideUp {
     from { transform: translateY(30px); opacity: 0; }
@@ -536,4 +537,27 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     margin-bottom: 1rem;
+}
+/* ── Custom scrollbar for register screen ─────────────────────────────── */
+.register-screen {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.register-screen::-webkit-scrollbar {
+    width: 8px;
+}
+
+.register-screen::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.register-screen::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.register-screen::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }

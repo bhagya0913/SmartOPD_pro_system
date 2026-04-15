@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './common.css';
 import './DoctorDashboard.css';
+import MedicalHistory from './MedicalHistory';
+import './MedicalHistory.css';   // ensures timeline styles are loaded
 import { useNavigate } from 'react-router-dom';
 import {
     Home, User, Bell, MessageSquare, LogOut, Search, ScanBarcode,
@@ -1456,7 +1458,7 @@ export default function DoctorDashboard({ user, setUser }) {
                     {activeTab === 'home'          && <DoctorHome user={user} onSelectPatient={handleSelectPatient} />}
                     {activeTab === 'lookup'        && <PatientLookup onSelect={p => handleSelectPatient(p, 'consult')} />}
                     {activeTab === 'consult'       && selectedPatient && <ConsultationSession user={user} patient={selectedPatient} appointmentId={selectedPatient.appointment_id} />}
-                    {activeTab === 'history'       && selectedPatient && <PatientHistory patient={selectedPatient} />}
+                    {activeTab === 'history'       && selectedPatient && <MedicalHistory user={selectedPatient} />}
                     {activeTab === 'notifications' && <DoctorNotifications user={user} />}
                     {activeTab === 'feedback'      && <DoctorFeedback user={user} />}
                     {activeTab === 'profile'       && <DoctorProfile user={user} />}

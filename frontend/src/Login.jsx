@@ -275,6 +275,18 @@ export default function Login({ setUser }) {
                             Create Account
                         </button>
                     </div>
+
+                    {/* Home Button */}
+                    <div className="home-button-container">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/')}
+                            className="btn-home"
+                            disabled={loading}
+                        >
+                            ← Back to Home
+                        </button>
+                    </div>
                 </div>
             </div>
 

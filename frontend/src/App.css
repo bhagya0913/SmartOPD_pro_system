@@ -10,13 +10,10 @@
 body {
   margin: 0;
   padding: 0;
-  /* Use your image here */
-  background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), 
-              url('./background.jpg') no-repeat center center fixed;
-  background-size: cover;
+  background: none;
+  background-color: #f8fafc; /* light grey fallback */
   font-family: 'Inter', sans-serif;
 }
-
 /* The Glassmorphism Effect */
 .glass-panel {
   background: var(--glass-bg);
@@ -48,13 +45,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Use the same gradient and image path as Landing */
-  background: linear-gradient(
-      rgba(239, 246, 255, 0.4), 
-      rgba(240, 253, 244, 0.4)
-    ),
-    url('/background.jpg') no-repeat center center fixed;
+  background: url('/smartopd_bg.jpg') no-repeat center center fixed;
   background-size: cover;
+  background-color: #0f172a; /* fallback dark blue */
   padding: 20px;
 }
 .auth-card {

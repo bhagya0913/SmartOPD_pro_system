@@ -5,21 +5,21 @@
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
-    --ph-green:        #1a6b3c;
-    --ph-green-light:  #e8f5ee;
-    --ph-green-mid:    #86c8a0;
-    --ph-green-dark:   #145530;
-    --ph-blue:         #2563eb;
-    --ph-blue-light:   #eff6ff;
+    --ph-green:        #1565a0;
+    --ph-green-light:  #e8f4fd;
+    --ph-green-mid:    #90caf9;
+    --ph-green-dark:   #0d47a1;
+    --ph-blue:         #1565a0;
+    --ph-blue-light:   #e8f4fd;
     --ph-amber:        #d97706;
     --ph-amber-light:  #fffbeb;
     --ph-red:          #dc2626;
     --ph-red-light:    #fef2f2;
 
-    --ph-bg:           #f8fafc;
+    --ph-bg:           #f4f6f8;
     --ph-surface:      #ffffff;
-    --ph-border:       #e2e8f0;
-    --ph-border-mid:   #cbd5e1;
+    --ph-border:       #c8d0d8;
+    --ph-border-mid:   #c8d0d8;
 
     --ph-text:         #0f172a;
     --ph-text-mid:     #334155;
@@ -55,11 +55,12 @@
 .ph-sidebar {
     width: var(--ph-sidebar-w);
     min-width: var(--ph-sidebar-w);
-    background: var(--ph-green);
+    background: #f1f4f8;
     display: flex;
     flex-direction: column;
     padding: 0;
     overflow: hidden;
+    box-shadow: 1px 0 3px rgba(0,0,0,.05);
 }
 
 .ph-brand {
@@ -67,27 +68,28 @@
     align-items: center;
     gap: 10px;
     padding: 18px 16px 14px;
-    border-bottom: 1px solid rgba(255,255,255,.12);
+    border-bottom: 1px solid #c5d0da;
 }
 
 .ph-brand-icon {
     width: 32px; height: 32px;
-    background: rgba(255,255,255,.18);
+    background: rgba(21,101,160,.1);
     border-radius: var(--ph-radius-sm);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
+    color: #1565a0;
 }
 
 .ph-brand-name {
     font-size: .9rem;
     font-weight: 800;
-    color: #fff;
+    color: #0d1829;
     letter-spacing: -.01em;
 }
 
 .ph-brand-role {
     font-size: .68rem;
-    color: rgba(255,255,255,.6);
+    color: #556070;
     margin-top: 1px;
     font-weight: 500;
 }
@@ -97,25 +99,25 @@
     align-items: center;
     gap: 10px;
     padding: 14px 16px;
-    border-bottom: 1px solid rgba(255,255,255,.1);
+    border-bottom: 1px solid #c5d0da;
     margin-bottom: 6px;
 }
 
 .ph-user-ava {
     width: 34px; height: 34px;
-    background: rgba(255,255,255,.22);
+    background: rgba(21,101,160,.15);
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-size: .82rem;
     font-weight: 700;
-    color: #fff;
+    color: #1565a0;
     flex-shrink: 0;
 }
 
 .ph-user-name {
     font-size: .8rem;
     font-weight: 600;
-    color: #fff;
+    color: #0d1829;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -124,7 +126,7 @@
 
 .ph-user-role {
     font-size: .68rem;
-    color: rgba(255,255,255,.55);
+    color: #556070;
     margin-top: 1px;
     white-space: nowrap;
     overflow: hidden;
@@ -150,7 +152,7 @@
     background: transparent;
     border: none;
     cursor: pointer;
-    color: rgba(255,255,255,.72);
+    color: #556070;
     font-size: .82rem;
     font-weight: 500;
     text-align: left;
@@ -160,13 +162,13 @@
 }
 
 .ph-nav-item:hover {
-    background: rgba(255,255,255,.12);
-    color: #fff;
+    background: rgba(21,101,160,.08);
+    color: #1565a0;
 }
 
 .ph-nav-item.active {
-    background: rgba(255,255,255,.2);
-    color: #fff;
+    background: rgba(21,101,160,.12);
+    color: #1565a0;
     font-weight: 600;
 }
 
@@ -187,14 +189,14 @@
 
 .ph-logout {
     margin: 8px;
-    color: rgba(255,255,255,.55) !important;
-    border-top: 1px solid rgba(255,255,255,.1);
+    color: #556070 !important;
+    border-top: 1px solid #c5d0da;
     border-radius: 0 0 0 0;
     padding-top: 12px;
     margin-top: auto;
 }
 
-.ph-logout:hover { color: rgba(255,255,255,.9) !important; }
+.ph-logout:hover { color: #1565a0 !important; }
 
 /* ── Main area ─────────────────────────────────────────────────────────────── */
 .ph-main {
@@ -229,7 +231,7 @@
 .ph-breadcrumb svg   { opacity: .4; }
 
 .ph-topbar-patient-hint {
-    color: var(--ph-green);
+    color: #1565a0;
     font-weight: 500;
 }
 
@@ -462,7 +464,7 @@
 .ph-input:focus {
     outline: none;
     border-color: var(--ph-green);
-    box-shadow: 0 0 0 3px rgba(26,107,60,.1);
+    box-shadow: 0 0 0 3px rgba(21,101,160,.1);
 }
 
 .ph-ta { resize: vertical; min-height: 56px; }
