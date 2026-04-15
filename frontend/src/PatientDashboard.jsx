@@ -682,7 +682,8 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
     const [filter,       setFilter]       = useState('all');   // all | booked | completed | cancelled
     const today = new Date().toISOString().split('T')[0];
     const [selectedAppt, setSelectedAppt] = useState(null);
-
+    const [showModal, setShowModal] = useState(false);
+    const fetchAppts = useCallback(async () => {
         const pid = getPid(user); if (!pid) return;
         try {
             const r = await fetch(`${API}/my-appointments?patientId=${pid}`);
@@ -830,14 +831,14 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
                                 </>
                             )}
                         </div>
-                    )}
+                     )}
 
-                    <button type="submit" className="primary-btn" disabled={loading || !canBook || checking}>
-                        {loading
-                            ? <><span className="btn-spinner" />Processing…</>
-                            : <><Calendar size={15} />Confirm Appointment</>}
-                    </button>
-                </form>
+                        <button type="submit" className="primary-btn" disabled={loading || !canBook || checking}>
+                            {loading
+                                ? <><span className="btn-spinner" />Processing…</>
+                                : <><Calendar size={15} />Confirm Appointment</>}
+                        </button>
+                     </form>
             </div>
 
             {/* ── Appointment History — full list, requirement #4 ── */}
@@ -869,7 +870,9 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
                     <tbody>
                         {filtered.length > 0
                             ? filtered.map(a => (
-                                <tr key={a.appointment_id} className={a.status === 'booked' ? 'row-booked' : ''}>
+                                <tr key={a.appointment_id} className={a.status === 'booked' ? 'row-booked' : ''}
+                                    onClick={() => { setSelectedAppt(a); setShowModal(true); }}
+                                    style={{ cursor: 'pointer' }}>
                                     <td>
                                         <strong>{fmtDate(a.appointment_day)}</strong>
                                         {/* "TODAY" tag */}
@@ -898,6 +901,60 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
                     </tbody>
                 </table>
             </div>
+
+            {/* Modal for appointment details */}
+            {showModal && selectedAppt && (
+            <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3>Appointment Details</h3>
+                    <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+                </div>
+                <div className="modal-body">
+                    <div className="detail-row">
+                    <span className="detail-label">Date:</span>
+                    <span>{fmtDate(selectedAppt.appointment_day)}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Time Slot:</span>
+                    <span>{selectedAppt.time_slot || '—'}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Token:</span>
+                    <span>#{selectedAppt.queue_no}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Visit Type:</span>
+                    <span>{selectedAppt.visit_type}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Status:</span>
+                    <span className={`appt-badge ${selectedAppt.status}`}>{selectedAppt.status}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Doctor ID:</span>
+                    <span>{selectedAppt.doctor_id || '—'}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Present:</span>
+                    <span>{selectedAppt.is_present ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Created At:</span>
+                    <span>{fmtDate(selectedAppt.created_at)} {selectedAppt.created_at ? new Date(selectedAppt.created_at).toLocaleTimeString() : ''}</span>
+                    </div>
+                    <div className="detail-row">
+                    <span className="detail-label">Completed At:</span>
+                    <span>{selectedAppt.completed_at ? fmtDate(selectedAppt.completed_at) + ' ' + new Date(selectedAppt.completed_at).toLocaleTimeString() : '—'}</span>
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <button className="primary-btn" onClick={() => setShowModal(false)}>Close</button>
+                </div>
+                </div>
+            </div>
+            )}
+            
         </div>
     );
 }

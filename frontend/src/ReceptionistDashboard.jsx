@@ -656,9 +656,7 @@ function RegisterPatient({ user, onDone }) {
         }
         if (!form.dob)                     { toast.error('Date of birth is required.');                          return false; }
         if (!form.gender)                  { toast.error('Gender is required.');                                 return false; }
-        if (!form.phone?.trim() && !form.email?.trim()) {
-            toast.error('At least one contact (phone or email) is required.');                                   return false;
-        }
+        // REMOVED: phone/email requirement
         if (form.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
             toast.error('Invalid email address.');                                                                return false;
         }
@@ -786,8 +784,8 @@ function RegisterPatient({ user, onDone }) {
                 <div className="rec-form-block">
                     <div className="rec-form-block-title"><Phone size={14}/> Contact Details</div>
                     <div className="rec-contact-note">
-                        At least one of phone or email is required — this becomes the login username.
-                        If both are provided, <strong>email is used as the username</strong>.
+                        <strong>Optional:</strong> Provide phone or email to enable login with those credentials.
+                        If neither is given, a system-generated username (based on NIC/barcode) will be created.
                     </div>
                     <div className="rec-grid-2">
                         <div className="rec-fg">
@@ -835,8 +833,8 @@ function RegisterPatient({ user, onDone }) {
                     <div className="rec-form-block-title"><Lock size={14}/> Login Account</div>
                     <div className="rec-account-info-box">
                         <div className="rec-account-row">
-                            <span>Username</span>
-                            <code>{previewUsername || '(enter phone or email above)'}</code>
+                            <span>Login Username</span>
+                            <code>{previewUsername || '(auto-generated from NIC/barcode)'}</code>    
                         </div>
                         <div className="rec-account-row">
                             <span>Password</span>

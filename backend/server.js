@@ -2915,14 +2915,16 @@ app.delete('/api/admin/remove-staff/:staffId', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 app.patch('/api/admin/reactivate-staff/:staffId', async (req, res) => {
     const staffId = req.params.staffId;
+    console.log(`Reactivating staff ID: ${staffId}`);
     try {
         const [result] = await db.query(`UPDATE staff SET is_active = 1 WHERE staff_id = ?`, [staffId]);
+        console.log(`Rows affected: ${result.affectedRows}`);
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: 'Staff not found.' });
         }
         res.json({ success: true, message: 'Staff reactivated.' });
     } catch (err) {
-        console.error(err);
+        console.error('Reactivation error:', err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
@@ -3673,7 +3675,24 @@ app.post('/api/receptionist/register-patient', async (req, res) => {
         const newPatientId = patientResult.insertId;
 
         // Create login account if identifier is available
-        const username = email?.trim() || normalizedPhone;
+        
+        let username = email?.trim() || normalizedPhone;
+            if (!username) {
+                // Generate a unique username from NIC or barcode
+                // Option 1: Use NIC (if unique)
+                username = nic;   // e.g., "200375713581" or "990234567V"
+                // Option 2: Use barcode (guaranteed unique)
+                // username = barcodeValue;
+                
+                // Ensure uniqueness (very low collision, but add check)
+                const [existing] = await conn.query(
+                    'SELECT user_id FROM user_account WHERE username = ?',
+                    [username]
+                );
+                if (existing.length) {
+                    username = `${username}_${Date.now()}`;
+                }
+            }
         if (username) {
             await conn.query(
                 `INSERT INTO user_account (username, password_hash, patient_id, staff_id) VALUES (?,?,?,NULL)`,
