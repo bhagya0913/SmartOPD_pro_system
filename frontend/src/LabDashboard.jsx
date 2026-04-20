@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './LabDashboard.css';
+import './MedicalHistory.css';
 import { useNavigate } from 'react-router-dom';
 import {
     Home, User, Bell, MessageSquare, LogOut, Search, ScanBarcode,
@@ -7,7 +8,7 @@ import {
     Activity, Shield, Edit3, Save, Lock, Send, FileText, Upload,
     AlertCircle, AlertTriangle, ArrowRight, Paperclip, Eye,
     Phone, Droplets, Calendar, Stethoscope, UserCheck, Info,
-    ChevronDown, ClipboardList, BadgeCheck
+    ChevronDown, ChevronUp, ClipboardList, BadgeCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -15,6 +16,7 @@ const API      = 'http://localhost:5001/api';
 const fmtDate  = d => d ? new Date(d).toLocaleDateString('en-GB') : '—';
 const fmtTime  = t => { if (!t) return '—'; const [h, m] = t.toString().split(':'); const hr = parseInt(h); return `${String(hr % 12 || 12).padStart(2,'0')}:${m||'00'} ${hr < 12 ? 'AM' : 'PM'}`; };
 const fmtDTime = d => d ? new Date(d).toLocaleString('en-GB', { dateStyle:'medium', timeStyle:'short' }) : '—';
+const fmtDateTime = fmtDTime;
 const calcAge  = dob => { if (!dob) return null; const d = new Date(dob), n = new Date(); let a = n.getFullYear()-d.getFullYear(); if (n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate())) a--; return a; };
 
 const Spinner  = () => <div className="lb-loading"><div className="lb-spinner"/></div>;
@@ -52,8 +54,8 @@ export default function LabDashboard({ user, setUser }) {
         { id: 'scan',          label: 'Patient Search',    icon: ScanBarcode   },
         { id: 'upload',        label: 'Update Results',    icon: Upload        },
         { id: 'profile',       label: 'My Profile',        icon: User          },
-        { id: 'notifications', label: 'Notifications',     icon: Bell          },
-        { id: 'feedback',      label: 'Feedback',          icon: MessageSquare },
+        //{ id: 'notifications', label: 'Notifications',     icon: Bell          },
+        //{/* id: 'feedback',      label: 'Feedback',          icon: MessageSquare */}
     ];
 
     return (
@@ -219,148 +221,101 @@ function LabHome({ user }) {
                     ? <Empty icon={FlaskConical} text="No test requests for this filter."/>
                     : (
                         /* ENHANCED: card-based rows with expandable detail */
-                        <div className="lb-worklist-cards">
-                            {worklist.map(t => {
-                                const isOpen = expanded[t.test_id];
-                                const age    = calcAge(t.patient_dob);
-                                return (
-                                    <div key={t.test_id}
-                                        className={`lb-wl-card lb-wl-${t.status} ${isOpen ? 'open' : ''}`}>
+                        <div className="mh-timeline">
+  {worklist.map(t => {
+    const isOpen = expanded[t.test_id];
+    const age = calcAge(t.patient_dob);
+    return (
+      <div key={t.test_id} className="mh-timeline-row">
+        {/* Left date column (optional – you can omit or keep simple) */}
+        <div className="mh-date-badge">
+          <span className="mh-date-day">
+            {t.requested_at ? new Date(t.requested_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' }) : '—'}
+          </span>
+          <span className="mh-date-year">
+            {t.requested_at ? new Date(t.requested_at).getFullYear() : ''}
+          </span>
+        </div>
 
-                                        {/* ── Summary row (always visible) ── */}
-                                        <div className="lb-wl-summary" onClick={() => toggleRow(t.test_id)}>
-                                            {/* Patient block */}
-                                            <div className="lb-wl-patient">
-                                                <div className="lb-ava-sm">{(t.patient_name||'?')[0]}</div>
-                                                <div>
-                                                    <div className="lb-wl-patient-name">{t.patient_name}</div>
-                                                    <div className="lb-wl-patient-meta">
-                                                        <span className="lb-mono">P-{t.patient_id}</span>
-                                                        {t.nic && <span>· {t.nic}</span>}
-                                                        {age  && <span>· {age}y {t.patient_gender}</span>}
-                                                    </div>
-                                                </div>
-                                            </div>
+        {/* Dot + line */}
+        <div className="mh-tl-gutter">
+          <div className={`mh-tl-dot mh-tl-dot-lab`} />
+          <div className="mh-tl-line" />
+        </div>
 
-                                            {/* Test block */}
-                                            <div className="lb-wl-test-info">
-                                                <span className={`lb-badge ${typeBadge(t.test_type)}`}>{t.test_type}</span>
-                                                <strong className="lb-wl-test-name">{t.test_name}</strong>
-                                            </div>
+        {/* Card */}
+        <div className="mh-tl-content">
+          <div className={`mh-record-card ${isOpen ? 'mh-expanded' : ''}`}>
+            <div className="mh-card-head" onClick={() => toggleRow(t.test_id)}>
+              <div className="mh-card-head-left">
+                <div className="mh-card-icon" style={{ background: '#f0fdf4' }}>
+                  <FlaskConical size={16} />
+                </div>
+                <div className="mh-card-title-block">
+                  <div className="mh-card-title">{t.test_name}</div>
+                  <div className="mh-card-meta">
+                    <span className="mh-doctor-chip">
+                      <User size={11} /> Dr. {t.doctor_name || '—'}
+                    </span>
+                    <span className="mh-type-pill" style={{ background: '#f5f3ff', color: '#6d28d9' }}>
+                      {t.test_type}
+                    </span>
+                    {t.priority && t.priority !== 'normal' && (
+                      <span className="mh-status-chip mh-status-urgent">{t.priority}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="mh-card-head-right">
+                <span className={`mh-status-chip mh-status-${t.status === 'requested' ? 'pending' : t.status === 'in_progress' ? 'inprogress' : 'done'}`}>
+                  {t.status.replace('_', ' ')}
+                </span>
+                <button className="mh-expand-btn">
+                  {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              </div>
+            </div>
 
-                                            {/* Doctor block */}
-                                            <div className="lb-wl-doctor">
-                                                <Stethoscope size={12}/>
-                                                <span>{t.doctor_name || '—'}</span>
-                                                {t.doctor_id && <span className="lb-mono lb-dimmed">D-{t.doctor_id}</span>}
-                                            </div>
+            {isOpen && (
+              <div className="mh-card-body">
+                <div className="mh-info-strip">
+                  <div className="mh-info-field"><span>Requested</span><strong>{fmtDateTime(t.requested_at)}</strong></div>
+                  <div className="mh-info-field"><span>Doctor</span><strong>Dr. {t.doctor_name || '—'}</strong></div>
+                  <div className="mh-info-field"><span>Patient</span><strong>{t.patient_name} ({age ? `${age}y` : ''})</strong></div>
+                  <div className="mh-info-field"><span>Priority</span><strong>{t.priority || 'Normal'}</strong></div>
+                </div>
 
-                                            {/* Priority + date */}
-                                            <div className="lb-wl-meta-col">
-                                                {t.priority && t.priority !== 'normal' && (
-                                                    <span className={`lb-badge ${priorityBadge(t.priority)}`}>
-                                                        {t.priority}
-                                                    </span>
-                                                )}
-                                                <span className="lb-dimmed" style={{fontSize:'0.78rem'}}>
-                                                    {fmtDate(t.requested_at || t.created_at)}
-                                                </span>
-                                            </div>
-
-                                            {/* Status + actions */}
-                                            <div className="lb-wl-actions">
-                                                <span className={`lb-badge lb-badge-status-${t.status}`}>
-                                                    {t.status.replace('_', ' ')}
-                                                </span>
-                                                {t.status === 'requested' && (
-                                                    <button className="lb-icon-btn lb-icon-btn-purple"
-                                                        title="Mark In Progress"
-                                                        onClick={e => { e.stopPropagation(); handleStatusChange(t.test_id, 'in_progress'); }}>
-                                                        <FlaskConical size={13}/>
-                                                    </button>
-                                                )}
-                                                {t.status === 'in_progress' && (
-                                                    <button className="lb-icon-btn lb-icon-btn-green"
-                                                        title="Mark Completed"
-                                                        onClick={e => { e.stopPropagation(); handleStatusChange(t.test_id, 'completed'); }}>
-                                                        <CheckCircle2 size={13}/>
-                                                    </button>
-                                                )}
-                                                <ChevronDown size={14}
-                                                    className={`lb-expand-arrow ${isOpen ? 'open' : ''}`}
-                                                    style={{marginLeft:'4px'}}/>
-                                            </div>
-                                        </div>
-
-                                        {/* ── Expanded detail panel ── */}
-                                        {isOpen && (
-                                            <div className="lb-wl-detail">
-                                                <div className="lb-wl-detail-grid">
-                                                    {/* Patient full details */}
-                                                    <div className="lb-wl-detail-block">
-                                                        <div className="lb-wl-detail-title">
-                                                            <User size={13}/> Patient Details
-                                                        </div>
-                                                        <div className="lb-wl-detail-rows">
-                                                            <div className="lb-wl-dr"><span>Patient ID</span><strong>P-{t.patient_id}</strong></div>
-                                                            <div className="lb-wl-dr"><span>Full Name</span><strong>{t.patient_name}</strong></div>
-                                                            {t.nic         && <div className="lb-wl-dr"><span>NIC</span><span className="lb-mono">{t.nic}</span></div>}
-                                                            {age !== null  && <div className="lb-wl-dr"><span>Age / Gender</span><span>{age} yrs, {t.patient_gender || '—'}</span></div>}
-                                                            {t.patient_phone && <div className="lb-wl-dr"><span>Contact</span><span>{t.patient_phone}</span></div>}
-                                                            {t.barcode     && <div className="lb-wl-dr"><span>Barcode</span><span className="lb-mono">{t.barcode}</span></div>}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Doctor / request details */}
-                                                    <div className="lb-wl-detail-block">
-                                                        <div className="lb-wl-detail-title">
-                                                            <Stethoscope size={13}/> Requesting Doctor
-                                                        </div>
-                                                        <div className="lb-wl-detail-rows">
-                                                            {t.doctor_id   && <div className="lb-wl-dr"><span>Doctor ID</span><strong>D-{t.doctor_id}</strong></div>}
-                                                            {t.doctor_name && <div className="lb-wl-dr"><span>Doctor Name</span><strong>Dr. {t.doctor_name}</strong></div>}
-                                                            {t.doctor_dept && <div className="lb-wl-dr"><span>Department</span><span>{t.doctor_dept}</span></div>}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Lab request details */}
-                                                    <div className="lb-wl-detail-block lb-wl-detail-block-wide">
-                                                        <div className="lb-wl-detail-title">
-                                                            <ClipboardList size={13}/> Lab Request Details
-                                                        </div>
-                                                        <div className="lb-wl-detail-rows">
-                                                            <div className="lb-wl-dr"><span>Test Type</span>
-                                                                <span className={`lb-badge ${typeBadge(t.test_type)}`}>{t.test_type}</span>
-                                                            </div>
-                                                            <div className="lb-wl-dr"><span>Test Name</span><strong>{t.test_name}</strong></div>
-                                                            <div className="lb-wl-dr"><span>Priority</span>
-                                                                <span className={`lb-badge ${priorityBadge(t.priority)}`}>
-                                                                    {t.priority || 'Normal'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="lb-wl-dr"><span>Requested</span><span>{fmtDTime(t.requested_at || t.created_at)}</span></div>
-                                                            <div className="lb-wl-dr"><span>Status</span>
-                                                                <span className={`lb-badge lb-badge-status-${t.status}`}>
-                                                                    {t.status.replace('_', ' ')}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        {t.clinical_notes && (
-                                                            <div className="lb-wl-notes">
-                                                                <div className="lb-wl-notes-label">
-                                                                    <Info size={12}/> Clinical Notes / Instructions
-                                                                </div>
-                                                                <p className="lb-wl-notes-text">{t.clinical_notes}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                <div className="mh-cells-grid">
+                  {t.clinical_notes && (
+                    <div className="mh-cell mh-cell-wide">
+                      <label>Clinical Notes</label>
+                      <p>{t.clinical_notes}</p>
+                    </div>
+                  )}
+                  {/* Status action buttons */}
+                  <div className="mh-cell mh-cell-wide">
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      {t.status === 'requested' && (
+                        <button className="mh-print-btn" onClick={() => handleStatusChange(t.test_id, 'in_progress')}>
+                          <FlaskConical size={13} /> Start Processing
+                        </button>
+                      )}
+                      {t.status === 'in_progress' && (
+                        <button className="mh-print-btn" onClick={() => handleStatusChange(t.test_id, 'completed')}>
+                          <CheckCircle2 size={13} /> Mark Completed
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  })}
+</div>
                     )
                 }
             </div>
@@ -502,121 +457,74 @@ function PatientTestPanel({ pid, patient, tests, appointments, technicianId, onU
                         : activeTests.map(t => {
                             const form = resultForms[t.test_id] || {};
                             return (
-                                <div key={t.test_id} className="lb-active-test-card">
-                                    {/* Request details header */}
-                                    <div className="lb-atc-header">
-                                        <div className="lb-atc-left">
-                                            <span className={`lb-badge ${typeBadge(t.test_type)}`}>{t.test_type}</span>
-                                            {t.priority && t.priority !== 'normal' && (
-                                                <span className={`lb-badge ${priorityBadge(t.priority)}`}>{t.priority}</span>
-                                            )}
-                                            <strong className="lb-atc-test-name">{t.test_name}</strong>
-                                        </div>
-                                        <span className={`lb-badge lb-badge-status-${t.status}`}>
-                                            {t.status.replace('_', ' ')}
-                                        </span>
-                                    </div>
+                                <div key={t.test_id} className="mh-record-card">
+  <div className="mh-card-head">
+    <div className="mh-card-head-left">
+      <div className="mh-card-icon" style={{ background: '#f0fdf4' }}>
+        <FlaskConical size={16} />
+      </div>
+      <div className="mh-card-title-block">
+        <div className="mh-card-title">{t.test_name}</div>
+        <div className="mh-card-meta">
+          <span className="mh-type-pill" style={{ background: '#f5f3ff', color: '#6d28d9' }}>
+            {t.test_type}
+          </span>
+          {t.priority && t.priority !== 'normal' && (
+            <span className="mh-status-chip mh-status-urgent">{t.priority}</span>
+          )}
+        </div>
+      </div>
+    </div>
+    <div className="mh-card-head-right">
+      <span className={`mh-status-chip mh-status-${t.status === 'requested' ? 'pending' : t.status === 'in_progress' ? 'inprogress' : 'done'}`}>
+        {t.status.replace('_', ' ')}
+      </span>
+    </div>
+  </div>
 
-                                    {/* Doctor + request metadata */}
-                                    <div className="lb-atc-meta">
-                                        <div className="lb-atc-meta-item">
-                                            <Stethoscope size={12}/>
-                                            <span>Dr. {t.doctor_name || '—'}</span>
-                                            {t.doctor_id && <span className="lb-mono lb-dimmed">(D-{t.doctor_id})</span>}
-                                        </div>
-                                        <div className="lb-atc-meta-item">
-                                            <Calendar size={12}/>
-                                            <span>Requested: {fmtDTime(t.requested_at || t.created_at)}</span>
-                                        </div>
-                                        <div className="lb-atc-meta-item">
-                                            <ClipboardList size={12}/>
-                                            <span>Test ID: T-{t.test_id}</span>
-                                        </div>
-                                    </div>
+  <div className="mh-card-body">
+    <div className="mh-info-strip">
+      <div className="mh-info-field"><span>Doctor</span><strong>Dr. {t.doctor_name || '—'}</strong></div>
+      <div className="mh-info-field"><span>Requested</span><strong>{fmtDateTime(t.requested_at)}</strong></div>
+      <div className="mh-info-field"><span>Test ID</span><strong>T-{t.test_id}</strong></div>
+    </div>
 
-                                    {/* Clinical notes */}
-                                    {t.clinical_notes && (
-                                        <div className="lb-atc-notes">
-                                            <Info size={12}/> <strong>Clinical Notes:</strong> {t.clinical_notes}
-                                        </div>
-                                    )}
+    {t.clinical_notes && (
+      <div className="mh-cell mh-cell-wide">
+        <label>Clinical Notes</label>
+        <p>{t.clinical_notes}</p>
+      </div>
+    )}
 
-                                    {/* Workflow + result entry */}
-                                    <div className="lb-atc-workflow">
-                                        {/* Status actions */}
-                                        <div className="lb-atc-actions">
-                                            {t.status === 'requested' && (
-                                                <button className="lb-workflow-btn lb-workflow-btn-purple"
-                                                    disabled={updating === t.test_id}
-                                                    onClick={() => handleStatusChange(t.test_id, 'in_progress')}>
-                                                    {updating === t.test_id
-                                                        ? <><div className="lb-btn-spin"/>…</>
-                                                        : <><FlaskConical size={13}/>Start Processing</>}
-                                                </button>
-                                            )}
-                                            {t.status === 'in_progress' && (
-                                                <span className="lb-atc-processing-tag">
-                                                    <FlaskConical size={12}/> Processing…
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Result entry form (available when in_progress) */}
-                                        {t.status === 'in_progress' && (
-                                            <div className="lb-result-entry">
-                                                <div className="lb-result-entry-title">
-                                                    <BadgeCheck size={13}/> Enter Results
-                                                </div>
-                                                <div className="lb-re-grid">
-                                                    <div className="lb-fg lb-re-findings">
-                                                        <label>
-                                                            Findings / Summary
-                                                            <span className="lb-req"> *</span>
-                                                        </label>
-                                                        <textarea className="lb-input lb-ta lb-ta-sm" rows={4}
-                                                            placeholder="Enter test findings, measured values, reference ranges…"
-                                                            value={form.summary || ''}
-                                                            onChange={e => setField(t.test_id, 'summary', e.target.value)}/>
-                                                    </div>
-                                                    <div className="lb-fg lb-re-remarks">
-                                                        <label>
-                                                            Remarks
-                                                            <span className="lb-opt"> (optional)</span>
-                                                        </label>
-                                                        <textarea className="lb-input lb-ta lb-ta-sm" rows={4}
-                                                            placeholder="Additional notes or observations — not required…"
-                                                            value={form.remarks || ''}
-                                                            onChange={e => setField(t.test_id, 'remarks', e.target.value)}/>
-                                                    </div>
-                                                </div>
-                                                <div className="lb-re-file-row">
-                                                    <label className="lb-re-file-label">
-                                                        <Paperclip size={13}/>
-                                                        {form.file
-                                                            ? <span className="lb-re-file-name">{form.file.name}</span>
-                                                            : <span>Attach Report <span className="lb-opt">(PDF/JPG/PNG — optional)</span></span>}
-                                                        <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png"
-                                                            onChange={e => setField(t.test_id, 'file', e.target.files[0])}/>
-                                                    </label>
-                                                    {form.file && (
-                                                        <button type="button" className="lb-re-file-remove"
-                                                            onClick={() => setField(t.test_id, 'file', null)}>
-                                                            <X size={12}/>
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <button
-                                                    className="lb-btn-primary lb-re-submit"
-                                                    disabled={submitting === t.test_id || !form.summary?.trim()}
-                                                    onClick={() => handleResultSubmit(t.test_id)}>
-                                                    {submitting === t.test_id
-                                                        ? <><div className="lb-btn-spin"/>Submitting…</>
-                                                        : <><Send size={14}/>Submit Results</>}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+    {/* Result entry form or status buttons */}
+    {t.status === 'in_progress' && (
+      <div className="mh-cell mh-cell-wide" style={{ marginTop: '16px' }}>
+        <label>Findings / Summary <span className="lb-req">*</span></label>
+        <textarea className="lb-input lb-ta" rows={4} placeholder="Enter test findings..."
+          value={resultForms[t.test_id]?.summary || ''}
+          onChange={e => setField(t.test_id, 'summary', e.target.value)} />
+        <div className="lb-re-file-row">
+          <label className="lb-re-file-label">
+            <Paperclip size={13} />
+            {resultForms[t.test_id]?.file ? resultForms[t.test_id].file.name : 'Attach Report (optional)'}
+            <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png"
+              onChange={e => setField(t.test_id, 'file', e.target.files[0])} />
+          </label>
+        </div>
+        <button className="mh-print-btn" onClick={() => handleResultSubmit(t.test_id)} disabled={submitting === t.test_id}>
+          {submitting === t.test_id ? 'Submitting...' : 'Submit Results'}
+        </button>
+      </div>
+    )}
+    {t.status === 'requested' && (
+      <div className="mh-cell mh-cell-wide">
+        <button className="mh-print-btn" onClick={() => handleStatusChange(t.test_id, 'in_progress')}>
+          <FlaskConical size={13} /> Start Processing
+        </button>
+      </div>
+    )}
+  </div>
+</div>
                             );
                         })
                     }

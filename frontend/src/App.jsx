@@ -83,7 +83,7 @@ function App() {
 
                 {/* Lab Technician Route */}
                 <Route path="/lab-dashboard/*" element={
-                    (user?.role?.toLowerCase() === 'lab' || user?.role?.toLowerCase() === 'diagnostics technician')
+                    (user?.role?.toLowerCase() === 'lab' || user?.role?.toLowerCase() === 'diagnostic technician')
                     ? <LabDashboard user={user} setUser={setUser} /> 
                     : <Navigate to="/login" replace />
                 } />

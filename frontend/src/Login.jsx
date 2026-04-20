@@ -22,7 +22,7 @@ export default function Login({ setUser }) {
             'doctor':                 '/doctor-dashboard',
             'pharmacist':             '/pharmacist-dashboard',
             'receptionist':           '/receptionist-dashboard',
-            'diagnostics technician': '/lab-dashboard',
+            'diagnostic technician': '/lab-dashboard',
             'lab':                    '/lab-dashboard',
             'patient':                '/patient-dashboard',
         };
@@ -68,7 +68,7 @@ export default function Login({ setUser }) {
             'doctor@test.com':      { pass: 'd123',  role: 'doctor',       id: 999, label: 'Doctor' },
             'pharmacist@test.com':  { pass: 'p123',  role: 'pharmacist',   id: 998, label: 'Pharmacist' },
             'reception@test.com':   { pass: 'r123',  role: 'receptionist', id: 997, label: 'Receptionist' },
-            'lab@test.com':         { pass: 'l123',  role: 'lab',          id: 996, label: 'Diagnostics Technician' },
+            'lab@test.com':         { pass: 'l123',  role: 'lab',          id: 996, label: 'Diagnostic Technician' },
             'admin@test.com':       { pass: 'a123',  role: 'admin',        id: 1,   label: 'Admin' },
         };
 
@@ -132,7 +132,7 @@ export default function Login({ setUser }) {
                 'doctor':                 'doctor',
                 'receptionist':           'receptionist',
                 'pharmacist':             'pharmacist',
-                'diagnostics technician': 'lab',
+                'diagnostic technician': 'lab',
                 'admin':                  'admin',
             };
 
@@ -191,7 +191,7 @@ export default function Login({ setUser }) {
                                     <option value="doctor">Doctor</option>
                                     <option value="receptionist">Receptionist</option>
                                     <option value="pharmacist">Pharmacist</option>
-                                    <option value="lab">Diagnostics Technician</option>
+                                    <option value="lab">Diagnostic Technician</option>
                                     <option value="admin">Administrator</option>
                                 </select>
                             </div>
@@ -273,18 +273,6 @@ export default function Login({ setUser }) {
                             disabled={loading}
                         >
                             Create Account
-                        </button>
-                    </div>
-
-                    {/* Home Button */}
-                    <div className="home-button-container">
-                        <button
-                            type="button"
-                            onClick={() => navigate('/')}
-                            className="btn-home"
-                            disabled={loading}
-                        >
-                            ← Back to Home
                         </button>
                     </div>
                 </div>

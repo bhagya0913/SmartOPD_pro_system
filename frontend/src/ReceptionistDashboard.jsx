@@ -40,8 +40,8 @@ export default function ReceptionistDashboard({ user, setUser }) {
         { id: 'register',      label: 'Register Patient', icon: UserPlus      },
         { id: 'appointments',  label: 'All Appointments', icon: Calendar      },
         { id: 'profile',       label: 'My Profile',       icon: User          },
-        { id: 'notifications', label: 'Notifications',    icon: Bell          },
-        { id: 'feedback',      label: 'Feedback',         icon: MessageSquare },
+        //{ id: 'notifications', label: 'Notifications',    icon: Bell          },
+        //{/* id: 'feedback',      label: 'Feedback',         icon: MessageSquare */}
     ];
 
     return (

@@ -1713,11 +1713,11 @@ export default function PatientDashboard({ user, setUser }) {
         fetchAppointments();
     }, [user, setUser, navigate, fetchAppointments]);
 
-    useEffect(() => {
-        if (mainRef.current) {
-            mainRef.current.scrollTop = 0;
-        }
-    }, [location.pathname]);
+    useLayoutEffect(() => {
+    if (mainRef.current) {
+        mainRef.current.scrollTop = 0;
+    }
+}, [location.pathname]);
 
     const handleLogout = () => {
         localStorage.removeItem('hospital_user');

@@ -115,8 +115,8 @@ export default function PharmacistDashboard({ user, setUser }) {
         { id: 'dispense',      label: 'Dispense Meds',     icon: ScanBarcode },
         { id: 'all',           label: 'All Prescriptions', icon: FileText },
         { id: 'profile',       label: 'My Profile',        icon: User },
-        { id: 'notifications', label: 'Notifications',     icon: Bell },
-        { id: 'feedback',      label: 'Feedback',          icon: MessageSquare },
+        // {id: 'notifications', label: 'Notifications',     icon: Bell },
+        //{/* id: 'feedback',      label: 'Feedback',          icon: MessageSquare */}
     ];
 
     return (

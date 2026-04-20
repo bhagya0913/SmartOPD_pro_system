@@ -7,12 +7,11 @@ const bwipjs  = require('bwip-js');
 const nodemailer = require('nodemailer');
 const path    = require('path');
 const fs      = require('fs');
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── Email transporter ────────────────────────────────────────────────────────
+// Email transporter 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -21,13 +20,163 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// ── OTP store ────────────────────────────────────────────────────────────────
+// Generate barcode as PNG data URL 
+function generateBarcodeDataURL(barcodeText) {
+    return new Promise((resolve, reject) => {
+        bwipjs.toBuffer({
+            bcid: 'code128',       // Barcode type
+            text: barcodeText,
+            scale: 3,
+            height: 10,
+            includetext: true,
+            textxalign: 'center',
+        }, (err, png) => {
+            if (err) reject(err);
+            else resolve(`data:image/png;base64,${png.toString('base64')}`);
+        });
+    });
+}
+
+// Build registration email (with barcode image)
+function buildRegistrationEmail(fullName, email, password, patientId, barcodeValue, barcodeImage) {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"/></head>
+        <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9">
+        <div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
+            <div style="background:linear-gradient(135deg,#0D47A1,#1565C0);padding:24px 32px;text-align:center">
+                <div style="font-size:28px;font-weight:800;color:#fff">SmartOPD</div>
+                <div style="font-size:13px;color:rgba(255,255,255,.8)">Base Hospital, Kiribathgoda</div>
+            </div>
+            <div style="padding:32px 32px;text-align:center">
+                <div style="width:64px;height:64px;background:#eff6ff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;border:3px solid #bfdbfe;font-size:28px">✅</div>
+                <h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px">Registration Successful!</h2>
+                <p style="font-size:14px;color:#64748b;margin:0 0 24px">Welcome to SmartOPD, ${fullName}.</p>
+
+                <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #e2e8f0;text-align:left">
+                    <div style="font-size:12px;color:#64748b;margin-bottom:6px">Your Patient ID</div>
+                    <div style="font-size:24px;font-weight:800;color:#0f172a;margin-bottom:12px">${patientId}</div>
+                    <div style="font-size:12px;color:#64748b;margin-bottom:6px">Your Barcode</div>
+                    <img src="${barcodeImage}" alt="Barcode" style="display:block;margin:0 auto;max-width:100%;height:auto;border:1px solid #e2e8f0;padding:10px;background:#fff;border-radius:8px"/>
+                    <div style="font-size:14px;font-weight:700;font-family:monospace;margin-top:10px;text-align:center">${barcodeValue}</div>
+                </div>
+
+                <div style="background:#f0fdf4;border-radius:8px;padding:14px;margin-bottom:20px;border-left:4px solid #16a34a;text-align:left">
+                    <p style="margin:0 0 4px;font-weight:700;color:#166534">Login Credentials</p>
+                    <p style="margin:0;font-size:13px;color:#334155">Username: <strong>${email}</strong></p>
+                    <p style="margin:0;font-size:13px;color:#334155">Password: <strong>${password}</strong></p>
+                    <p style="margin:6px 0 0;font-size:12px;color:#6b7280">Please change your password after first login.</p>
+                </div>
+
+                <p style="font-size:12px;color:#94a3b8;margin:0">Keep this email safe. You will need the barcode at hospital visits.</p>
+            </div>
+            <div style="background:#f8fafc;padding:16px;border-top:1px solid #e2e8f0;text-align:center;font-size:11px;color:#94a3b8">
+                SmartOPD — Base Hospital Kiribathgoda | For internal use only
+            </div>
+        </div>
+        </body>
+        </html>
+    `;
+}
+
+// Build OPD slip email (used after booking)
+function buildOpdSlipEmail(appointment, patient, barcodeImage) {
+    const startTime = appointment.time_slot ? appointment.time_slot.split('–')[0].trim() : '—';
+    const dateObj = new Date(appointment.appointment_day);
+    const formattedDate = dateObj.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    return `
+        <div style="max-width:480px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;border:1.5px solid #BBDEFB;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(21,101,192,.12)">
+            <div style="background:linear-gradient(135deg,#0D47A1,#1565C0);padding:24px 20px;text-align:center">
+                <div style="font-size:12px;color:rgba(255,255,255,.6);letter-spacing:3px;text-transform:uppercase;margin-bottom:12px">SmartOPD · Official OPD Slip</div>
+                <div style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:12px;padding:12px 20px;display:inline-block;margin-bottom:12px">
+                    <div style="color:rgba(255,255,255,.7);font-size:10px;letter-spacing:2px;text-transform:uppercase">Queue Token</div>
+                    <div style="color:white;font-size:56px;font-weight:900;line-height:1;letter-spacing:-2px">#${appointment.queue_no}</div>
+                </div>
+                <div style="color:rgba(255,255,255,.55);font-size:10px;letter-spacing:1.5px">BASE HOSPITAL, KIRIBATHGODA</div>
+            </div>
+            <div style="background:white;padding:20px">
+                <div style="border-bottom:1px solid #E3F0FF;padding-bottom:12px;margin-bottom:12px">
+                    <div style="font-size:11px;color:#94a3b8;font-weight:700;letter-spacing:1px;text-transform:uppercase">Patient Name</div>
+                    <div style="font-size:16px;font-weight:800;color:#0f172a">${patient.full_name}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:4px">ID: ${patient.patient_id} · NIC: ${patient.nic || '—'}</div>
+                </div>
+                <div style="background:#E3F0FF;border:1.5px solid #90BEF5;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between">
+                    <div>
+                        <div style="font-size:9px;color:#1565C0;font-weight:700;letter-spacing:1px;text-transform:uppercase">Appointment Date</div>
+                        <div style="font-size:13px;font-weight:800;color:#0D47A1;margin-top:4px">${formattedDate}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:9px;color:#1565C0;font-weight:700;letter-spacing:1px;text-transform:uppercase">Reporting Time</div>
+                        <div style="font-size:16px;font-weight:900;color:#1565C0;margin-top:4px">${startTime}</div>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:16px">
+                    <div style="flex:1;background:#f8fafc;border-radius:6px;padding:8px 12px">
+                        <div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase">Visit Type</div>
+                        <div style="font-size:13px;font-weight:600;color:#0f172a;margin-top:2px">${appointment.visit_type || 'New'}</div>
+                    </div>
+                    <div style="flex:1;background:#f8fafc;border-radius:6px;padding:8px 12px">
+                        <div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase">Token No.</div>
+                        <div style="font-size:20px;font-weight:900;color:#1565C0;margin-top:2px">#${appointment.queue_no}</div>
+                    </div>
+                </div>
+                <div style="background:#f0f4fb;border:1px solid #E3F0FF;border-radius:8px;padding:10px;text-align:center">
+                    <div style="font-size:9px;color:#94a3b8;font-weight:700;letter-spacing:1px;text-transform:uppercase">Patient Barcode</div>
+                    <img src="${barcodeImage}" alt="Barcode" style="display:block;margin:6px auto;max-width:100%;height:auto;border:1px solid #e2e8f0;padding:6px;background:#fff;border-radius:6px"/>
+                    <div style="font-family:monospace;font-size:12px;font-weight:700;color:#1565C0;margin-top:4px">${patient.barcode}</div>
+                </div>
+            </div>
+            <div style="background:#f8fafc;border-top:1px dashed #BBDEFB;padding:12px;text-align:center;font-size:11px;color:#475569">Present this slip at the OPD nursing station on arrival.</div>
+        </div>
+    `;
+}
+
+function buildRegistrationEmailForExistingStaff(fullName, email, patientId, barcodeValue, barcodeImage) {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"/></head>
+        <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9">
+        <div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
+            <div style="background:linear-gradient(135deg,#0D47A1,#1565C0);padding:24px 32px;text-align:center">
+                <div style="font-size:28px;font-weight:800;color:#fff">SmartOPD</div>
+                <div style="font-size:13px;color:rgba(255,255,255,.8)">Base Hospital, Kiribathgoda</div>
+            </div>
+            <div style="padding:32px 32px;text-align:center">
+                <div style="width:64px;height:64px;background:#eff6ff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;border:3px solid #bfdbfe;font-size:28px">✅</div>
+                <h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px">Patient Registration Linked</h2>
+                <p style="font-size:14px;color:#64748b;margin:0 0 24px">Hello <strong>${fullName}</strong>, you are now also registered as a patient.</p>
+
+                <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #e2e8f0;text-align:left">
+                    <div style="font-size:12px;color:#64748b;margin-bottom:6px">Your Patient ID</div>
+                    <div style="font-size:24px;font-weight:800;color:#0f172a;margin-bottom:12px">${patientId}</div>
+                    <div style="font-size:12px;color:#64748b;margin-bottom:6px">Your Barcode</div>
+                    <img src="${barcodeImage}" alt="Barcode" style="display:block;margin:0 auto;max-width:100%;height:auto;border:1px solid #e2e8f0;padding:10px;background:#fff;border-radius:8px"/>
+                    <div style="font-size:14px;font-weight:700;font-family:monospace;margin-top:10px;text-align:center">${barcodeValue}</div>
+                </div>
+
+                <div style="background:#f0fdf4;border-radius:8px;padding:14px;margin-bottom:20px;border-left:4px solid #16a34a;text-align:left">
+                    <p style="margin:0 0 4px;font-weight:700;color:#166534">Your existing login credentials remain valid</p>
+                    <p style="margin:0;font-size:13px;color:#334155">Username: <strong>${email}</strong></p>
+                    <p style="margin:0;font-size:13px;color:#334155">Password: <strong>unchanged (your staff password)</strong></p>
+                </div>
+
+                <p style="font-size:12px;color:#94a3b8;margin:0">Keep this barcode for hospital visits.</p>
+            </div>
+            <div style="background:#f8fafc;padding:16px;border-top:1px solid #e2e8f0;text-align:center;font-size:11px;color:#94a3b8">
+                SmartOPD — Base Hospital Kiribathgoda | For internal use only
+            </div>
+        </div>
+        </body>
+        </html>
+    `;
+}
+
+// OTP store
 const otpStore = new Map();
 
-// ── Database pool ────────────────────────────────────────────────────────────
-// pool.promise() returns a promise-based pool.
-// ALL routes use: const [rows] = await db.query(sql, params)
-// Transactions:   const conn = await db.getConnection(); await conn.beginTransaction(); ...
+// Database pool
 const pool = mysql.createPool({
     host:             process.env.DB_HOST     || 'localhost',
     port:             3307,
@@ -41,7 +190,7 @@ const pool = mysql.createPool({
 
 const db = pool.promise(); // ← This IS the promise pool. Never call db.promise() again.
 
-// ── DB init ──────────────────────────────────────────────────────────────────
+// DB init
 async function initDB() {
     try {
         await db.query(`
@@ -63,38 +212,30 @@ async function initDB() {
                 KEY idx_member     (member_patient_id)
             )
         `);
-        console.log('✅ Database tables verified.');
+        console.log(' Database tables verified.');
     } catch (err) {
-        console.error('❌ Database init error:', err);
+        console.error(' Database init error:', err);
     }
 }
 initDB();
-
-
-
-// ═══════════════════════════════════════════════════════════════════════════
 //  AUTH — FORGOT / RESET PASSWORD
 // ═══════════════════════════════════════════════════════════════════════════
 
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email required' });
-
     try {
         const [users] = await db.query('SELECT user_id FROM user_account WHERE username = ?', [email]);
         if (!users.length) {
             return res.status(404).json({ success: false, message: 'No account found with this email' });
         }
-
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expires = new Date(Date.now() + 5 * 60000);
-
         await db.query(`
             INSERT INTO otp_verification (contact_value, contact_type, otp_code, expires_at)
             VALUES (?, 'email', ?, ?)
             ON DUPLICATE KEY UPDATE otp_code = ?, expires_at = ?
         `, [email, otp, expires, otp, expires]);
-
         await transporter.sendMail({
             from: 'bhagya0913@gmail.com',
             to: email,
@@ -105,20 +246,13 @@ app.post('/api/forgot-password', async (req, res) => {
                    <div style="font-size:32px;font-weight:bold;text-align:center;letter-spacing:8px;background:#eff6ff;padding:20px;border-radius:8px;margin:15px 0">${otp}</div>
                    <p>This code expires in <b>5 minutes</b>.</p></div>`
         });
-
-        // ✅ ONLY send success – no undefined variables
+        // ONLY send success – no undefined variables
         res.json({ success: true, message: 'OTP sent to email.' });
-
     } catch (err) {
         console.error('Forgot Password Error:', err);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
-
-
-
-
-
 
 app.post('/api/verify-token', async (req, res) => {
     const { email, token } = req.body;
@@ -183,22 +317,11 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  REGISTRATION OTP
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  registration_routes.js
-//  Paste these routes into your server.js
-//  npm install nodemailer bcryptjs qrcode
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  REGISTRATION OTP
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── Send OTP — Email ─────────────────────────────────────────────────────────
+// Send OTP — Email
 app.post('/api/send-registration-otp', async (req, res) => {
     const { email } = req.body;
     if (!email || !email.includes('@'))
@@ -208,47 +331,59 @@ app.post('/api/send-registration-otp', async (req, res) => {
     const expiresAt = new Date(Date.now() + 5 * 60000);
 
     try {
+        // Check if email already exists in user_account
         const [existing] = await db.query(
-            'SELECT user_id FROM user_account WHERE username = ? LIMIT 1', [email]
+            'SELECT user_id, patient_id FROM user_account WHERE username = ? LIMIT 1',
+            [email]
         );
-        if (existing.length)
-            return res.status(400).json({ success: false, error: 'This email is already registered.' });
 
+        // If email exists AND already has a patient_id → reject
+        if (existing.length > 0 && existing[0].patient_id !== null) {
+            return res.status(400).json({
+                success: false,
+                error: 'This email is already registered as a patient.'
+            });
+        }
+
+        // If email exists but patient_id is NULL (staff-only account) → allow OTP
+        // If email does not exist → allow OTP
+        // Upsert OTP record (overwrites old OTP if email already in otp_verification)
         await db.query(`
             INSERT INTO otp_verification (contact_value, contact_type, otp_code, expires_at)
             VALUES (?, 'email', ?, ?)
             ON DUPLICATE KEY UPDATE otp_code = ?, expires_at = ?
         `, [email, otp, expiresAt, otp, expiresAt]);
 
+        // Send email
         await transporter.sendMail({
             from:    process.env.SMTP_USER || 'SmartOPD <bhagya0913@gmail.com>',
             to:      email,
             subject: 'SmartOPD — Your Verification Code',
             html: `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif">
-<div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
-  <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:32px 40px;text-align:center">
-    <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:-.02em">SmartOPD</div>
-    <div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:4px">Base Hospital, Kiribathgoda</div>
-  </div>
-  <div style="padding:36px 40px;text-align:center">
-    <div style="width:64px;height:64px;background:#eff6ff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;border:3px solid #bfdbfe;font-size:28px">🔐</div>
-    <h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px">Verify your email address</h2>
-    <p style="font-size:14px;color:#64748b;margin:0 0 28px;line-height:1.6">Enter the code below to complete your SmartOPD patient registration.</p>
-    <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:20px;margin-bottom:24px">
-      <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#1e40af;text-align:center">${otp}</div>
-      <div style="font-size:12px;color:#64748b;margin-top:8px">Expires in <strong>5 minutes</strong></div>
-    </div>
-    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;text-align:left;margin-bottom:20px">
-      <p style="font-size:12px;color:#78350f;margin:0">⚠️ <strong>Never share this code</strong> with anyone. SmartOPD staff will never ask for it.</p>
-    </div>
-    <p style="font-size:12px;color:#94a3b8;margin:0">If you didn't request this, you can safely ignore this email.</p>
-  </div>
-  <div style="background:#f8fafc;padding:16px 40px;border-top:1px solid #e2e8f0;text-align:center">
-    <p style="font-size:11px;color:#94a3b8;margin:0">SmartOPD — Base Hospital, Kiribathgoda &nbsp;|&nbsp; For internal use only</p>
-  </div>
-</div>
-</body></html>`
+            <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif">
+            <div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
+            <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:32px 40px;text-align:center">
+                <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:-.02em">SmartOPD</div>
+                <div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:4px">Base Hospital, Kiribathgoda</div>
+            </div>
+            <div style="padding:36px 40px;text-align:center">
+                <div style="width:64px;height:64px;background:#eff6ff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;border:3px solid #bfdbfe;font-size:28px">🔐</div>
+                <h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px">Verify your email address</h2>
+                <p style="font-size:14px;color:#64748b;margin:0 0 28px;line-height:1.6">Enter the code below to complete your SmartOPD patient registration.</p>
+                <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:20px;margin-bottom:24px">
+                <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#1e40af;text-align:center">${otp}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:8px">Expires in <strong>5 minutes</strong></div>
+                </div>
+                <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;text-align:left;margin-bottom:20px">
+                <p style="font-size:12px;color:#78350f;margin:0">⚠️ <strong>Never share this code</strong> with anyone. SmartOPD staff will never ask for it.</p>
+                </div>
+                <p style="font-size:12px;color:#94a3b8;margin:0">If you didn't request this, you can safely ignore this email.</p>
+            </div>
+            <div style="background:#f8fafc;padding:16px 40px;border-top:1px solid #e2e8f0;text-align:center">
+                <p style="font-size:11px;color:#94a3b8;margin:0">SmartOPD — Base Hospital, Kiribathgoda &nbsp;|&nbsp; For internal use only</p>
+            </div>
+            </div>
+            </body></html>`
         });
 
         res.json({ success: true, message: 'OTP sent to email.' });
@@ -258,14 +393,7 @@ app.post('/api/send-registration-otp', async (req, res) => {
     }
 });
 
-
-
-
-
-
-
-
-// ── Send OTP — SMS ───────────────────────────────────────────────────────────
+// Send OTP — SMS
 app.post('/api/send-registration-sms-otp', async (req, res) => {
     const { phone } = req.body;
     const phoneRegex = /^(?:\+94|0)[0-9]{9}$/;
@@ -304,13 +432,7 @@ app.post('/api/send-registration-sms-otp', async (req, res) => {
     }
 });
 
-
-
-
-
-
-
-// ── Verify OTP — Email ───────────────────────────────────────────────────────
+// Verify OTP — Email
 app.post('/api/verify-registration-otp', async (req, res) => {
     const { email, otp } = req.body;
     if (!email || !otp)
@@ -327,7 +449,7 @@ app.post('/api/verify-registration-otp', async (req, res) => {
     }
 });
 
-// ── Verify OTP — SMS ─────────────────────────────────────────────────────────
+// Verify OTP — SMS
 app.post('/api/verify-registration-sms-otp', async (req, res) => {
     const { phone, otp } = req.body;
     if (!phone || !otp)
@@ -348,64 +470,114 @@ app.post('/api/verify-registration-sms-otp', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 //  PATIENT REGISTRATION
 // ═══════════════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════════════
-//  PATIENT REGISTRATION
-// ═══════════════════════════════════════════════════════════════════════════
 app.post('/api/register', async (req, res) => {
     let connection;
     try {
-        // ✅ FIX 1: was `promisePool.getConnection()` — `promisePool` is not defined.
-        //           The promise pool is `db` throughout this file.
         connection = await db.getConnection();
 
         const { full_name, nic, dob, gender, email, phone, password } = req.body;
 
-        // 1. Check existing user
+        // Check existing user_account
         const [existingUser] = await connection.query(
-            'SELECT * FROM user_account WHERE username = ?', [email]
+            'SELECT user_id, patient_id, staff_id, password_hash FROM user_account WHERE username = ? LIMIT 1',
+            [email]
         );
+
+        let existingUserId = null;
+        let existingPatientId = null;
+        let existingPasswordHash = null;
+
         if (existingUser.length > 0) {
-            connection.release();
-            return res.status(400).json({ success: false, message: 'Email already registered' });
+            existingUserId = existingUser[0].user_id;
+            existingPatientId = existingUser[0].patient_id;
+            existingPasswordHash = existingUser[0].password_hash;
+
+            // If already a patient, reject
+            if (existingPatientId) {
+                connection.release();
+                return res.status(400).json({
+                    success: false,
+                    message: 'This email is already registered as a patient.'
+                });
+            }
         }
 
-        // 2. Check OTP is valid and not expired
-        // ✅ FIX 4: was `WHERE email = ?` — the column is `contact_value`
+        // Validate OTP
         const [otpValid] = await connection.query(
-            'SELECT * FROM otp_verification WHERE contact_value = ? AND expires_at > NOW()', [email]
+            'SELECT * FROM otp_verification WHERE contact_value = ? AND expires_at > NOW()',
+            [email]
         );
         if (otpValid.length === 0) {
             connection.release();
-            return res.status(400).json({ success: false, message: 'Email not verified. Please request OTP.' });
+            return res.status(400).json({
+                success: false,
+                message: 'Email not verified. Please request OTP.'
+            });
         }
 
         await connection.beginTransaction();
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const barcodeValue   = `OPD-${Date.now()}`;
+        const barcodeValue = `OPD-${Date.now()}`;
 
-        // 3. Insert Patient
+        // Insert patient record
         const [patientResult] = await connection.query(
-            'INSERT INTO patient (full_name, nic, dob, gender, email, phone, barcode) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            `INSERT INTO patient (full_name, nic, dob, gender, email, phone, barcode)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [full_name, nic, dob, gender, email, phone, barcodeValue]
         );
+        const newPatientId = patientResult.insertId;
 
-        // 4. Insert User Account
-        await connection.query(
-            'INSERT INTO user_account (username, password_hash, patient_id) VALUES (?, ?, ?)',
-            [email, hashedPassword, patientResult.insertId]
-        );
+        if (existingUserId) {
+            // Existing account: link patient_id, but keep existing password
+            await connection.query(
+                `UPDATE user_account SET patient_id = ? WHERE user_id = ?`,
+                [newPatientId, existingUserId]
+            );
+        } else {
+            // New account: hash the provided password
+            const hashedPassword = await bcrypt.hash(password, 10);
+            await connection.query(
+                `INSERT INTO user_account (username, password_hash, patient_id)
+                 VALUES (?, ?, ?)`,
+                [email, hashedPassword, newPatientId]
+            );
+        }
 
-        // 5. Cleanup OTP
-        // ✅ FIX 4 (same column fix): was `WHERE email = ?`
-        await connection.query(
-            'DELETE FROM otp_verification WHERE contact_value = ?', [email]
-        );
+        // Clean up OTP
+        await connection.query('DELETE FROM otp_verification WHERE contact_value = ?', [email]);
 
         await connection.commit();
-        connection.release();
 
-        res.status(201).json({ success: true, barcode: barcodeValue, message: 'Registered successfully!' });
+        // Send email with barcode – include note about existing credentials if applicable
+        try {
+            const barcodeImage = await generateBarcodeDataURL(barcodeValue);
+            let emailHtml;
+            if (existingUserId) {
+                // Staff becoming patient – tell them to use existing password
+                emailHtml = buildRegistrationEmailForExistingStaff(
+                    full_name, email, newPatientId, barcodeValue, barcodeImage
+                );
+            } else {
+                emailHtml = buildRegistrationEmail(
+                    full_name, email, password, newPatientId, barcodeValue, barcodeImage
+                );
+            }
+            await transporter.sendMail({
+                from: 'bhagya0913@gmail.com',
+                to: email,
+                subject: 'SmartOPD Registration Successful — Your Patient Barcode',
+                html: emailHtml
+            });
+        } catch (emailErr) {
+            console.warn('Registration email failed:', emailErr.message);
+        }
+
+        connection.release();
+        res.status(201).json({
+            success: true,
+            barcode: barcodeValue,
+            message: 'Registered successfully!'
+        });
 
     } catch (error) {
         if (connection) {
@@ -417,11 +589,8 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  LOGIN
-//  ✅ FIX 2: duplicate /api/login route removed — only ONE definition below
 // ═══════════════════════════════════════════════════════════════════════════
 app.post('/api/login', async (req, res) => {
     const { username, password, selectedRole } = req.body;
@@ -429,8 +598,7 @@ app.post('/api/login', async (req, res) => {
     if (!username || !password)
         return res.status(400).json({ success: false, message: 'Email and password are required.' });
 
-    // ── HARDCODED ADMIN BYPASS (dev/demo only — remove before production) ─────
-    // NOTE: Must stay in sync with devLogins in Login.jsx
+    // ── HARDCODED ADMIN
     if (username.trim() === 'admin' && password.trim() === 'admin') {
         return res.json({
             success: true,
@@ -500,25 +668,19 @@ app.post('/api/login', async (req, res) => {
                 message: 'Account deactivated. Contact hospital administration.'
             });
         }
-
-        // 3. Determine primary role
-        //    FIX: Honour the client's selectedRole when the account has multiple roles,
-        //         so a doctor-patient can log in as "Patient" without being overridden.
         const roleMap = {
             'patient':                'Patient',
             'doctor':                 staffRole,   // use actual DB role_name
             'receptionist':           staffRole,
             'pharmacist':             staffRole,
             'lab':                    staffRole,
-            'diagnostics technician': staffRole,
+            'diagnostic technician': staffRole,
             'admin':                  staffRole,
         };
 
         let primaryRole;
 
         if (availableRoles.length > 1) {
-            // Multi-role account: if the client sent a valid selectedRole, use it.
-            // Otherwise fall back to staff role (or patient).
             const clientRole = (selectedRole || '').toLowerCase();
             const clientRoleLabel = roleMap[clientRole];
             primaryRole = (clientRoleLabel && availableRoles.includes(clientRoleLabel))
@@ -570,9 +732,6 @@ app.post('/api/login', async (req, res) => {
                 userObj.phone     = userObj.staff_phone;
             }
         }
-
-        // FIX: Only prompt role picker when there are genuinely multiple roles
-        //      AND the client did not already resolve the choice via selectedRole.
         const requiresRoleSelection = availableRoles.length > 1 && !selectedRole;
 
         res.json({
@@ -588,53 +747,15 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-
 // ═══════════════════════════════════════════════════════════════════════════
-//  OPD SLOTS
-// ═══════════════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════════════
-//  ADD TO server.js — replace or add these routes
-//  These implement:
-//    • Date-only booking (no slot picker — token is FCFS)
-//    • Max 60 patients/day enforced
-//    • Estimated time slot auto-calculated from token number
-//    • Booking confirmation email with OPD slip details
+//  PHARMACIST ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  PHARMACIST STATS
-//  GET /api/pharmacist/stats
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  PHARMACIST ROUTES PATCH
-//
-//  WHAT CHANGED:
-//    GET /api/pharmacist/pending-queue    — now includes s.staff_id AS doctor_staff_id
-//    GET /api/pharmacist/all-prescriptions — now includes s.staff_id AS doctor_staff_id
-//    GET /api/pharmacist/prescriptions-by-patient — now includes s.staff_id AS doctor_staff_id
-//
-//  Replace these 3 routes in your server.js.
-//  Everything else (stats, fulfill-record) is unchanged.
-// ═══════════════════════════════════════════════════════════════════════════
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  PHARMACIST BACKEND ADDITIONS
-//  Add/replace these routes in your server.js
-// ═══════════════════════════════════════════════════════════════════════════
-
-
-// ── Save pharmacist note on a prescription ────────────────────────────────
-// POST /api/pharmacist/save-note
-// Body: { record_id, note }
+//  Save pharmacist note on a prescription
 app.post('/api/pharmacist/save-note', async (req, res) => {
     const { record_id, note } = req.body;
     if (!record_id) return res.status(400).json({ success: false, message: 'record_id required.' });
     try {
-        // Add a pharmacist_note column if you don't have one:
-        // ALTER TABLE treatment_records ADD COLUMN pharmacist_note TEXT NULL;
         await db.query(
             `UPDATE treatment_records SET pharmacist_note = ? WHERE record_id = ?`,
             [note || null, record_id]
@@ -645,9 +766,7 @@ app.post('/api/pharmacist/save-note', async (req, res) => {
     }
 });
 
-
-// ── GET /api/pharmacist/reports/generate ──────────────────────────────────
-// Query: type, from, to
+//  GET /api/pharmacist/reports/generate
 app.get('/api/pharmacist/reports/generate', async (req, res) => {
     const { type, from, to } = req.query;
     if (!type || !from || !to)
@@ -775,12 +894,6 @@ app.get('/api/pharmacist/reports/generate', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  FEEDBACK ROUTE FIX — column mismatch
-//  The feedback table uses `date_submitted` not `submitted_at`.
-//  Replace the existing GET /api/staff/feedback/:staff_id route with this:
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/staff/feedback/:staff_id', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -803,12 +916,7 @@ app.get('/api/staff/feedback/:staff_id', async (req, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PHARMACIST DASHBOARD ROUTES
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── GET /api/pharmacist/stats ─────────────────────────────────────────────
-// Returns counts: pending, fulfilled today, total today
+// GET /api/pharmacist/stats 
 app.get('/api/pharmacist/stats', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
@@ -852,8 +960,7 @@ app.get('/api/pharmacist/stats', async (req, res) => {
     }
 });
 
-// ── GET /api/pharmacist/pending-queue ─────────────────────────────────────
-// Returns list of pending prescriptions with patient & doctor info
+// GET /api/pharmacist/pending-queue 
 app.get('/api/pharmacist/pending-queue', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -884,8 +991,7 @@ app.get('/api/pharmacist/pending-queue', async (req, res) => {
     }
 });
 
-// ── GET /api/pharmacist/all-prescriptions ─────────────────────────────────
-// Supports ?status=pending|fulfilled|all
+// GET /api/pharmacist/all-prescriptions 
 app.get('/api/pharmacist/all-prescriptions', async (req, res) => {
     const { status } = req.query;
     try {
@@ -922,8 +1028,7 @@ app.get('/api/pharmacist/all-prescriptions', async (req, res) => {
     }
 });
 
-// ── GET /api/pharmacist/prescriptions-by-patient ─────────────────────────
-// Searches by barcode OR NIC (term can be either)
+// GET /api/pharmacist/prescriptions-by-patient
 app.get('/api/pharmacist/prescriptions-by-patient', async (req, res) => {
     const { term } = req.query;
     if (!term) return res.status(400).json({ success: false, message: 'Missing search term.' });
@@ -972,8 +1077,7 @@ app.get('/api/pharmacist/prescriptions-by-patient', async (req, res) => {
     }
 });
 
-// ── POST /api/pharmacist/fulfill-record ──────────────────────────────────
-// Marks an entire prescription as dispensed (creates fulfillment record)
+// POST /api/pharmacist/fulfill-record
 app.post('/api/pharmacist/fulfill-record', async (req, res) => {
     const { record_id, pharmacist_id, notes } = req.body;
     if (!record_id || !pharmacist_id) {
@@ -1004,19 +1108,8 @@ app.post('/api/pharmacist/fulfill-record', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MIGRATION NOTE
-//  If treatment_records doesn't have pharmacist_note column, run:
-//  ALTER TABLE treatment_records ADD COLUMN pharmacist_note TEXT NULL;
+//  LAB ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  LAB STATS
-//  GET /api/lab/stats
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-//  LAB STATS
-//  GET /api/lab/stats
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/lab/stats', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
@@ -1036,14 +1129,6 @@ app.get('/api/lab/stats', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  LAB WORKLIST
-//  GET /api/lab/worklist?status=requested|in_progress|completed|all
-//  ENHANCED: Returns full patient details (age, gender, phone, barcode),
-//            full doctor details (id, name, department),
-//            and full request context (priority, clinical_notes, requested_at).
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/lab/worklist', async (req, res) => {
     const { status = 'requested' } = req.query;
     try {
@@ -1099,13 +1184,6 @@ app.get('/api/lab/worklist', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  LAB PATIENT TESTS + APPOINTMENTS
-//  GET /api/lab/patient-tests?term=XXX   (barcode or NIC)
-//  ENHANCED: Returns full patient profile, all tests with complete doctor
-//            and request context, plus appointment history.
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/lab/patient-tests', async (req, res) => {
     const { term } = req.query;
     if (!term) return res.status(400).json({ success: false, message: 'Search term required.' });
@@ -1135,12 +1213,6 @@ app.get('/api/lab/patient-tests', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  UPDATE TEST STATUS
-//  POST /api/lab/update-status
-//  Body: { test_id, status, technician_id }
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/lab/update-status', async (req, res) => {
     const { test_id, status, technician_id } = req.body;
     if (!test_id || !status)
@@ -1171,27 +1243,8 @@ app.post('/api/lab/update-status', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  UPLOAD / SUBMIT TEST RESULT
-//  POST /api/lab/upload-result  (multipart/form-data)
-//  Fields: test_id, summary (required), remarks (optional), uploaded_by,
-//          result_file (optional binary)
-//
-//  NOTES FIELD IS OPTIONAL — system allows submission without remarks.
-//
-//  Setup multer in server.js if not already done:
-//    const multer = require('multer');
-//    const storage = multer.diskStorage({
-//        destination: 'uploads/lab/',
-//        filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-//    });
-//    const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
-//    Then change the route to:
-//    app.post('/api/lab/upload-result', upload.single('result_file'), async (req, res) => { ... });
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/lab/upload-result',
-    // upload.single('result_file'),   // Uncomment after multer setup
+    // upload.single('result_file'), 
     async (req, res) => {
         const { test_id, summary, remarks, uploaded_by } = req.body;
 
@@ -1236,11 +1289,6 @@ app.post('/api/lab/upload-result',
     }
 );
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  STAFF FEEDBACK — Submit
-//  POST /api/staff/feedback
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/staff/feedback', async (req, res) => {
     const { staff_id, comment } = req.body;
     if (!staff_id || !comment?.trim())
@@ -1259,56 +1307,11 @@ app.post('/api/staff/feedback', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  STAFF FEEDBACK — History
-//  GET /api/staff/feedback/:staffId
-// ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/staff/feedback/:staffId', async (req, res) => {
-    try {
-        const [rows] = await db.query(
-            `SELECT feedback_id, comment, status, admin_note, submitted_at
-             FROM staff_feedback
-             WHERE staff_id = ?
-             ORDER BY submitted_at DESC LIMIT 50`,
-            [req.params.staffId]
-        );
-        res.json({ success: true, feedback: rows });
-    } catch (err) {
-        console.error('Staff feedback get error:', err);
-        res.json({ success: true, feedback: [] });
-    }
-});
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  DOCTOR ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  DOCTOR ROUTES — paste these into your server.js
-//  after your existing doctor routes block.
-//
-//  Endpoints provided:
-//    GET  /api/doctor/patient-lookup        (NIC / barcode search)
-//    GET  /api/doctor/today-queue           (today's appointments + stats)
-//    GET  /api/doctor/appointments-by-date  (single date filter)
-//    GET  /api/doctor/appointments-by-range (date range filter)
-//    GET  /api/doctor/patient-appointments/:patientId
-//    GET  /api/doctor/patient-history/:patientId  (returns weight/height too)
-//    POST /api/doctor/treatment-record      (saves with NOW() + doctor id)
-//    POST /api/doctor/order-tests           (Lab/Imaging/ECG + Routine/Emergency)
-//    POST /api/doctor/referral
-//    POST /api/doctor/lab-findings
-//    POST /api/doctor/update-profile
-//    POST /api/doctor/change-password
-//    GET  /api/staff/notifications/:staffId
-//    GET  /api/staff/feedback/:staffId
-//    POST /api/staff/feedback
-// ═══════════════════════════════════════════════════════════════════════════
-
-
-// ── 1. Patient Lookup ─────────────────────────────────────────────────────────
-// GET /api/doctor/patient-lookup?mode=barcode|nic&q=<value>
+// 1. Patient Lookup 
 app.get('/api/doctor/patient-lookup', async (req, res) => {
     const { mode, q } = req.query;
     if (!mode || !q)
@@ -1370,9 +1373,7 @@ app.get('/api/doctor/patient-lookup', async (req, res) => {
     }
 });
 
-
-// ── 2. Today's queue (used for stat cards + default table view) ───────────────
-// GET /api/doctor/today-queue
+// 2. Today's queue (used for stat cards + default table view) 
 app.get('/api/doctor/today-queue', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
@@ -1396,9 +1397,7 @@ app.get('/api/doctor/today-queue', async (req, res) => {
     }
 });
 
-
-// ── 3. Appointments by a single date ─────────────────────────────────────────
-// GET /api/doctor/appointments-by-date?date=YYYY-MM-DD
+// 3. Appointments by a single date
 app.get('/api/doctor/appointments-by-date', async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ success: false, message: 'date required' });
@@ -1423,9 +1422,7 @@ app.get('/api/doctor/appointments-by-date', async (req, res) => {
     }
 });
 
-
-// ── 4. Appointments by date range ─────────────────────────────────────────────
-// GET /api/doctor/appointments-by-range?from=YYYY-MM-DD&to=YYYY-MM-DD
+//  4. Appointments by date range
 app.get('/api/doctor/appointments-by-range', async (req, res) => {
     const { from, to } = req.query;
     if (!from || !to) return res.status(400).json({ success: false, message: 'from and to are required' });
@@ -1450,9 +1447,7 @@ app.get('/api/doctor/appointments-by-range', async (req, res) => {
     }
 });
 
-
-// ── 5. Patient's own appointments (for consultation appointment selector) ──────
-// GET /api/doctor/patient-appointments/:patientId
+// 5. Patient's own appointments (for consultation appointment selector) 
 app.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -1472,10 +1467,7 @@ app.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
     }
 });
 
-
-// ── 6. Patient treatment history (includes latest weight/height) ───────────────
-// GET /api/doctor/patient-history/:patientId
-// Used by PatientLookup to fetch the most recent vitals for the health card
+// 6. Patient treatment history 
 app.get('/api/doctor/patient-history/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -1502,11 +1494,7 @@ app.get('/api/doctor/patient-history/:patientId', async (req, res) => {
     }
 });
 
-
-// ── 7. Save treatment record ──────────────────────────────────────────────────
-// POST /api/doctor/treatment-record
-// consultation_day stored as NOW() (full datetime).
-// follow_up_date removed from UI but column still accepts null.
+// 7. Save treatment record 
 app.post('/api/doctor/treatment-record', async (req, res) => {
     const {
         appointment_id, patient_id, staff_id,
@@ -1553,121 +1541,99 @@ app.post('/api/doctor/treatment-record', async (req, res) => {
     }
 });
 
+//  9. Issue referral 
+app.post('/api/doctor/referral', async (req, res) => {
+    const {
+        appointment_id, patient_id, staff_id,
+        target_clinic, consultant_name, urgency, reason, clinical_summary
+    } = req.body;
 
-// ── 8. Order diagnostic tests ─────────────────────────────────────────────────
-// POST /api/doctor/order-tests
-// test_type: 'Lab' | 'Imaging' | 'ECG'
-// priority:  'Routine' | 'Emergency'
-// (specimen and clinical_info removed from UI — not passed)
-   
+    if (!appointment_id || !patient_id || !staff_id || !target_clinic || !reason)
+        return res.status(400).json({
+            success: false,
+            message: 'appointment_id, patient_id, staff_id, target_clinic and reason are required.'
+        });
 
+    try {
+        await db.query(`
+            INSERT INTO referrals
+                (appointment_id, patient_id, issued_by,
+                target_clinic, consultant_name, urgency,
+                referral_date, reason)
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
+        `, [
+            appointment_id,
+            patient_id,
+            staff_id,
+            target_clinic,
+            consultant_name  || null,
+            urgency          || 'Routine',
+            reason
+        ]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 
-    // ── 9. Issue referral ─────────────────────────────────────────────────────────
-    // POST /api/doctor/referral
-    // referral_date stored as NOW() for full datetime
-    app.post('/api/doctor/referral', async (req, res) => {
-        const {
-            appointment_id, patient_id, staff_id,
-            target_clinic, consultant_name, urgency, reason, clinical_summary
-        } = req.body;
+app.post('/api/doctor/order-tests', async (req, res) => {
+    const { appointment_id, patient_id, staff_id, tests } = req.body;
+    if (!appointment_id || !patient_id || !staff_id || !Array.isArray(tests) || !tests.length)
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
 
-        if (!appointment_id || !patient_id || !staff_id || !target_clinic || !reason)
-            return res.status(400).json({
-                success: false,
-                message: 'appointment_id, patient_id, staff_id, target_clinic and reason are required.'
-            });
+    try {
+        const insertions = tests
+            .filter(t => t.test_name?.trim())
+            .map(t => db.query(
+                `INSERT INTO medical_tests
+                    (appointment_id, patient_id, test_type, test_name, status, requested_by, clinical_notes, requested_at)
+                VALUES (?, ?, ?, ?, 'requested', ?, ?, NOW())`,
+                [
+                    appointment_id,
+                    patient_id,
+                    t.test_type     || 'Lab',
+                    t.test_name.trim(),
+                    staff_id,
+                    t.clinical_notes?.trim() || null,   // ← doctor's notes sent at order time
+                ]
+            ));
 
-        try {
-            await db.query(`
-                INSERT INTO referrals
-                    (appointment_id, patient_id, issued_by,
-                    target_clinic, consultant_name, urgency,
-                    referral_date, reason)
-                VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
-            `, [
-                appointment_id,
-                patient_id,
-                staff_id,
-                target_clinic,
-                consultant_name  || null,
-                urgency          || 'Routine',
-                reason
-            ]);
-            res.json({ success: true });
-        } catch (err) {
-            res.status(500).json({ success: false, message: err.message });
-        }
-    });
+        await Promise.all(insertions);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('order-tests error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+    
+app.post('/api/doctor/lab-findings', async (req, res) => {
+    const { test_id, patient_id, clinical_notes } = req.body;
 
+    // Accept both field names for backwards compat (old code sent doctor_findings)
+    const notes = clinical_notes || req.body.doctor_findings;
 
+    if (!test_id || !notes?.trim())
+        return res.status(400).json({ success: false, message: 'test_id and clinical notes are required.' });
 
-    // FIX: now saves clinical_notes per test (uses existing column in medical_tests)
-    app.post('/api/doctor/order-tests', async (req, res) => {
-        const { appointment_id, patient_id, staff_id, tests } = req.body;
-        if (!appointment_id || !patient_id || !staff_id || !Array.isArray(tests) || !tests.length)
-            return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    try {
+        const [result] = await db.query(
+            `UPDATE medical_tests
+            SET clinical_notes = ?, updated_at = NOW()
+            WHERE test_id = ? AND patient_id = ?`,
+            [notes.trim(), test_id, patient_id]
+        );
+
+        if (!result.affectedRows)
+            return res.json({ success: false, message: 'Test not found or patient mismatch.' });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('lab-findings error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
     
-        try {
-            const insertions = tests
-                .filter(t => t.test_name?.trim())
-                .map(t => db.query(
-                    `INSERT INTO medical_tests
-                        (appointment_id, patient_id, test_type, test_name, status, requested_by, clinical_notes, requested_at)
-                    VALUES (?, ?, ?, ?, 'requested', ?, ?, NOW())`,
-                    [
-                        appointment_id,
-                        patient_id,
-                        t.test_type     || 'Lab',
-                        t.test_name.trim(),
-                        staff_id,
-                        t.clinical_notes?.trim() || null,   // ← doctor's notes sent at order time
-                    ]
-                ));
-    
-            await Promise.all(insertions);
-            res.json({ success: true });
-        } catch (err) {
-            console.error('order-tests error:', err);
-            res.status(500).json({ success: false, message: err.message });
-        }
-    });
-    
-    
-    // ── POST /api/doctor/lab-findings ─────────────────────────────────────────────
-    // FIX: uses clinical_notes column (already exists in medical_tests table).
-    // The previous version referenced a non-existent 'doctor_findings' column.
-    // No migration needed — clinical_notes TEXT already exists.
-    app.post('/api/doctor/lab-findings', async (req, res) => {
-        const { test_id, patient_id, clinical_notes } = req.body;
-    
-        // Accept both field names for backwards compat (old code sent doctor_findings)
-        const notes = clinical_notes || req.body.doctor_findings;
-    
-        if (!test_id || !notes?.trim())
-            return res.status(400).json({ success: false, message: 'test_id and clinical notes are required.' });
-    
-        try {
-            const [result] = await db.query(
-                `UPDATE medical_tests
-                SET clinical_notes = ?, updated_at = NOW()
-                WHERE test_id = ? AND patient_id = ?`,
-                [notes.trim(), test_id, patient_id]
-            );
-    
-            if (!result.affectedRows)
-                return res.json({ success: false, message: 'Test not found or patient mismatch.' });
-    
-            res.json({ success: true });
-        } catch (err) {
-            console.error('lab-findings error:', err);
-            res.status(500).json({ success: false, message: err.message });
-        }
-    });
-    
-    
-    // ── GET /api/lab-results/:patientId ──────────────────────────────────────────
-    // UPDATE: now includes clinical_notes in the response so the frontend can show it
-    app.get('/api/lab-results/:patientId', async (req, res) => {
+app.get('/api/lab-results/:patientId', async (req, res) => {
         try {
             const [rows] = await db.query(`
                 SELECT
@@ -1691,10 +1657,6 @@ app.post('/api/doctor/treatment-record', async (req, res) => {
         }
     });
     
-    
-
-
-// ── 11. Update doctor profile ─────────────────────────────────────────────────
 app.post('/api/doctor/update-profile', async (req, res) => {
     const { staff_id, first_name, surname, phone } = req.body;
     if (!staff_id) return res.status(400).json({ success: false, message: 'staff_id required.' });
@@ -1709,8 +1671,6 @@ app.post('/api/doctor/update-profile', async (req, res) => {
     }
 });
 
-
-// ── 12. Change password ───────────────────────────────────────────────────────
 app.post('/api/doctor/change-password', async (req, res) => {
     const { staff_id, current, next } = req.body;
     if (!staff_id || !current || !next)
@@ -1731,8 +1691,6 @@ app.post('/api/doctor/change-password', async (req, res) => {
     }
 });
 
-
-// ── 13. Staff notifications ───────────────────────────────────────────────────
 app.get('/api/staff/notifications/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -1748,8 +1706,6 @@ app.get('/api/staff/notifications/:staffId', async (req, res) => {
     }
 });
 
-
-// ── 14. Get staff feedback ────────────────────────────────────────────────────
 app.get('/api/staff/feedback/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -1766,8 +1722,6 @@ app.get('/api/staff/feedback/:staffId', async (req, res) => {
     }
 });
 
-
-// ── 15. Submit staff feedback ─────────────────────────────────────────────────
 app.post('/api/staff/feedback', async (req, res) => {
     const { staff_id, comment } = req.body;
     if (!staff_id || !comment?.trim())
@@ -1791,59 +1745,17 @@ app.post('/api/staff/feedback', async (req, res) => {
     }
 });
 
-
 // ═══════════════════════════════════════════════════════════════════════════
-//  ONE-TIME MIGRATION — run this SQL once in your MySQL client
-//  to add the doctor_findings column if it doesn't exist yet:
-//
-//  ALTER TABLE medical_tests
-//    ADD COLUMN doctor_findings TEXT NULL AFTER clinical_notes;
-//
+//  PATIENT DASHBOARD ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
-//═════════════════════════════════════
-//  BACKEND API ADDITIONS — Add these routes to your existing server file
-//  Place these AFTER the existing routes (before app.listen)
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-
-
-
-// ══════════════════════════════════════════════════════════════════════════════
-//  NOTE ON DATABASE COLUMN: patient.is_active
-//  If your patient table doesn't have is_active, run this migration:
-//
-//  ALTER TABLE patient ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1;
-//
-//  NOTE ON DATABASE COLUMN: patient.created_at
-//  If missing:
-//  ALTER TABLE patient ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;
-// ══════════════════════════════════════════════════════════════════════════════
-
-// ══════════════════════════════════════════════════════════════════════════════
-//  BACKEND API ADDITIONS — Add these routes to your existing server file
-//  Place these AFTER the existing routes (before app.listen)
-// ══════════════════════════════════════════════════════════════════════════════
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Check if email already exists (patient or staff)
-// GET /api/admin/check-email?email=xxx
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  PATIENT DASHBOARD — ALL ROUTES
-//  Replace your existing patient routes block with this entire file.
-//  Works with the updated PatientDashboard.jsx
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── Helper: barcode generator ─────────────────────────────────────────────────
+// Helper: barcode generator 
 function generateBarcode() {
     const ts  = Date.now().toString(36).toUpperCase();
     const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `BHK-${ts}-${rnd}`;
 }
 
-// ── Helper: estimated time from token number ──────────────────────────────────
 async function calcEstimatedTime(tokenNo) {
     try {
         const [rows] = await db.query(
@@ -1867,10 +1779,6 @@ async function calcEstimatedTime(tokenNo) {
     }
 }
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  OPD SLOTS — capacity check (date-only mode, no individual slot picker)
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/opd-slots', async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ success: false, message: 'date required' });
@@ -1909,16 +1817,10 @@ app.get('/api/opd-slots', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  BOOK APPOINTMENT
-//  Date-only · FCFS token · 60/day max · auto-calculated time slot · email
-// ═══════════════════════════════════════════════════════════════════════════
 app.post('/api/book-appointment', async (req, res) => {
     const { patientId, date, visitType = 'New' } = req.body;
     if (!patientId || !date)
         return res.status(400).json({ success: false, message: 'patientId and date are required.' });
-
     try {
         // 1. Closed date check
         const [settingRows] = await db.query(
@@ -1991,93 +1893,39 @@ app.post('/api/book-appointment', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  BOOKING CONFIRMATION EMAIL
-// ═══════════════════════════════════════════════════════════════════════════
 async function sendBookingEmail(patientId, appointmentId, date, tokenNo, estimatedTime, visitType) {
     try {
         const [pRows] = await db.query(
-            `SELECT full_name, email, barcode, nic FROM patient WHERE patient_id=? LIMIT 1`,
+            `SELECT full_name, email, barcode, nic, patient_id FROM patient WHERE patient_id=? LIMIT 1`,
             [patientId]
         );
         if (!pRows.length || !pRows[0].email) return;
-        const { full_name, email, barcode, nic } = pRows[0];
+        const patient = pRows[0];
 
-        const formattedDate = new Date(date).toLocaleDateString('en-GB', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
+        // Generate barcode image for the patient
+        let barcodeImage = '';
+        try {
+            barcodeImage = await generateBarcodeDataURL(patient.barcode);
+        } catch (bErr) {
+            console.warn('Barcode image generation failed:', bErr.message);
+        }
 
-        const rows = [
-            ['Date',            formattedDate],
-            ['Estimated Time',  estimatedTime || 'Determined on arrival'],
-            ['Token Number',    `#${tokenNo}`],
-            ['Visit Type',      visitType],
-            ['Patient Barcode', barcode || '—'],
-            ['NIC',             nic     || '—'],
-        ];
+        const appointment = {
+            queue_no: tokenNo,
+            appointment_day: date,
+            time_slot: estimatedTime,
+            visit_type: visitType,
+        };
 
-        const html = `
-<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
-<div style="max-width:520px;margin:32px auto;background:white;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.08);">
-
-  <div style="background:#0f172a;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div style="width:34px;height:34px;background:#2563eb;border-radius:8px;font-size:20px;font-weight:900;color:white;display:flex;align-items:center;justify-content:center;">+</div>
-      <div>
-        <div style="color:white;font-size:11px;font-weight:700;letter-spacing:.5px;">BASE HOSPITAL, KIRIBATHGODA</div>
-        <div style="color:#475569;font-size:9px;margin-top:1px;">Base Hospital, Kiribathgoda· Sri Lanka</div>
-      </div>
-    </div>
-    <div style="color:#22c55e;font-size:10px;font-weight:700;letter-spacing:1px;">✓ APPOINTMENT CONFIRMED</div>
-  </div>
-  <div style="height:3px;background:linear-gradient(90deg,#2563eb,#7c3aed);"></div>
-
-  <div style="background:#eff6ff;padding:28px 28px 20px;text-align:center;border-bottom:1px solid #dbeafe;">
-    <div style="font-size:11px;color:#3b82f6;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Your Queue Token</div>
-    <div style="font-size:72px;font-weight:900;color:#1e40af;line-height:1;letter-spacing:-3px;">#${tokenNo}</div>
-    <div style="font-size:11px;color:#3b82f6;margin-top:8px;">First Come, First Served · OPD System</div>
-  </div>
-
-  <div style="padding:24px 28px;">
-    <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">Dear ${full_name},</div>
-    <div style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.6;">Your OPD appointment has been confirmed. Please arrive on time and present this email at the nursing station.</div>
-
-    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:20px;">
-      ${rows.map(([l,v],i) => `
-      <div style="padding:10px 16px;background:${i%2===0?'#f8fafc':'white'};border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:11px;color:#64748b;font-weight:600;">${l}</span>
-        <span style="font-size:12px;color:#0f172a;font-weight:700;">${v}</span>
-      </div>`).join('')}
-    </div>
-
-    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:8px;">
-      <div style="font-size:11px;color:#78350f;font-weight:700;margin-bottom:5px;">ℹ️ Important Instructions</div>
-      <ul style="font-size:11px;color:#92400e;margin:0;padding-left:16px;line-height:1.9;">
-        <li>Arrive at least 10 minutes before your estimated time.</li>
-        <li>Bring this email or your patient barcode card to the OPD counter.</li>
-        <li>Bring all previous medical records and reports.</li>
-        <li>Your actual call time may vary depending on earlier patients.</li>
-      </ul>
-    </div>
-  </div>
-
-  <div style="background:#f8fafc;padding:14px 28px;border-top:1px solid #e2e8f0;text-align:center;">
-    <div style="font-size:10px;color:#94a3b8;">SmartOPD · Base Hospital, Kiribathgoda · Ministry of Health, Sri Lanka</div>
-    <div style="font-size:9px;color:#cbd5e1;margin-top:3px;">This is an automated email. Please do not reply.</div>
-  </div>
-</div>
-</body></html>`;
-
+        const emailHtml = buildOpdSlipEmail(appointment, patient, barcodeImage);
         await transporter.sendMail({
-            from:    process.env.SMTP_USER || 'SmartOPD <bhagya0913@gmail.com>',
-            to:      email,
-            subject: `✓ OPD Appointment Confirmed — Token #${tokenNo} · ${date}`,
-            html
+            from: 'bhagya0913@gmail.com',
+            to: patient.email,
+            subject: `SmartOPD OPD Slip — Token #${tokenNo} · ${date}`,
+            html: emailHtml
         });
 
-        // Log to notifications table (fail silently if table doesn't exist)
+        // Log to notifications table (fail silently if table missing)
         await db.query(
             `INSERT INTO notifications (patient_id, recipient_type, email_subject, message, status, sent_at)
              VALUES (?, 'patient', ?, ?, 'sent', NOW())`,
@@ -2093,10 +1941,6 @@ async function sendBookingEmail(patientId, appointmentId, date, tokenNo, estimat
     }
 }
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  MY APPOINTMENTS
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/my-appointments', async (req, res) => {
     const { patientId } = req.query;
     if (!patientId) return res.status(400).json({ success: false, message: 'patientId required' });
@@ -2120,10 +1964,6 @@ app.get('/api/my-appointments', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  CANCEL APPOINTMENT
-// ═══════════════════════════════════════════════════════════════════════════
 app.delete('/api/cancel-appointment/:id', async (req, res) => {
     try {
         const [result] = await db.query(
@@ -2138,10 +1978,6 @@ app.delete('/api/cancel-appointment/:id', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  MEDICAL RECORDS  (clinical history / treatment records)
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/medical-records/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -2164,10 +2000,6 @@ app.get('/api/medical-records/:patientId', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  PRESCRIPTIONS
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/prescriptions/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -2192,10 +2024,6 @@ app.get('/api/prescriptions/:patientId', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  LAB / DIAGNOSTIC TESTS
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/lab-results/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -2219,10 +2047,6 @@ app.get('/api/lab-results/:patientId', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  LAB TEST FILE DOWNLOAD
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/test-file/:testId', async (req, res) => {
     try {
         const [rows] = await db.query(
@@ -2240,10 +2064,6 @@ app.get('/api/test-file/:testId', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  REFERRALS
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/referrals/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -2264,10 +2084,6 @@ app.get('/api/referrals/:patientId', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  NOTIFICATIONS
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/notifications/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -2286,10 +2102,6 @@ app.get('/api/notifications/:patientId', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  UPDATE PROFILE
-// ═══════════════════════════════════════════════════════════════════════════
 app.post('/api/update-profile', async (req, res) => {
     const {
         patientId, full_name, nic, dob, gender, civil_status, blood_group,
@@ -2335,11 +2147,6 @@ app.post('/api/update-profile', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  FEEDBACK
-//  FIX: removed `rating` as required field — dashboard sends null for rating
-// ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/feedback/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -2378,12 +2185,6 @@ app.post('/api/feedback', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  FAMILY MEMBERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-// GET /api/family-members?email=xxx
 app.get('/api/family-members', async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ success: false, message: 'email required' });
@@ -2421,7 +2222,6 @@ app.get('/api/family-members', async (req, res) => {
     }
 });
 
-// POST /api/add-family-member
 app.post('/api/add-family-member', async (req, res) => {
     const { email, full_name, dob, gender, relation, nic, phone } = req.body;
     if (!email || !full_name || !dob || !gender)
@@ -2481,7 +2281,6 @@ app.post('/api/add-family-member', async (req, res) => {
     }
 });
 
-// DELETE /api/remove-family-member
 app.delete('/api/remove-family-member', async (req, res) => {
     const { email, memberPatientId } = req.body;
     if (!email || !memberPatientId)
@@ -2511,32 +2310,8 @@ app.delete('/api/remove-family-member', async (req, res) => {
     }
 });
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  DB SEED — run once to ensure system_settings rows exist
-//  You can paste this directly into MySQL / phpMyAdmin
-// ═══════════════════════════════════════════════════════════════════════════
-/*
-INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES
-  ('opd_start_hour',        '8'),
-  ('opd_end_hour',          '18'),
-  ('slot_duration_minutes', '10'),
-  ('closed_dates',          '');
-*/
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Add new staff member (with professional email & password)
-// POST /api/admin/add-staff
-// Body: { staffId?, firstName, surname, email, phone, nic, roleName }
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Check if email already exists (in user_account, patient, or staff)
-// GET /api/admin/check-email?email=xxx
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Get all staff (with role names)
-// GET /api/admin/staff
+// ADMIN ROUTES
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/admin/staff', async (req, res) => {
     try {
@@ -2554,15 +2329,6 @@ app.get('/api/admin/staff', async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Add new staff member (with professional email & temp password)
-// POST /api/admin/add-staff
-// Body: { staffId?, firstName, surname, email, phone, nic, roleName }
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/admin/check-email?email=xxx
-// Returns: { hasPatientAccount, hasStaffAccount, existingRole }
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/admin/check-email', async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ success: false, message: 'Email required.' });
@@ -2633,11 +2399,6 @@ app.get('/api/admin/check-email', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/admin/add-staff
-// Body: { staffId?, firstName, surname, email, phone, nic, roleName }
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/admin/add-staff', async (req, res) => {
     const { staffId, firstName, surname, email, phone, nic, roleName } = req.body;
 
@@ -2885,16 +2646,6 @@ app.post('/api/admin/add-staff', async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Deactivate staff member (soft delete)
-// DELETE /api/admin/remove-staff/:staffId
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Deactivate staff member (soft delete)
-// DELETE /api/admin/remove-staff/:staffId
-// ─────────────────────────────────────────────────────────────────────────────
 app.delete('/api/admin/remove-staff/:staffId', async (req, res) => {
     const staffId = req.params.staffId;
     try {
@@ -2909,10 +2660,6 @@ app.delete('/api/admin/remove-staff/:staffId', async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Reactivate staff member
-// PATCH /api/admin/reactivate-staff/:staffId
-// ─────────────────────────────────────────────────────────────────────────────
 app.patch('/api/admin/reactivate-staff/:staffId', async (req, res) => {
     const staffId = req.params.staffId;
     console.log(`Reactivating staff ID: ${staffId}`);
@@ -2929,17 +2676,6 @@ app.patch('/api/admin/reactivate-staff/:staffId', async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Deactivate staff member (soft delete)
-// DELETE /api/admin/remove-staff/:staffId
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Get all staff (with roles)
-// GET /api/admin/staff
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ── Get all patients (admin view) ─────────────────────────────────────────────
 app.get('/api/admin/patients', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 200, 500);
     try {
@@ -2987,9 +2723,6 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
     }
 });
 
-// ── Toggle patient record status (disable / re-enable) ────────────────────────
-// PATCH /api/admin/patient-status/:id
-// Body: { is_active: 0|1, reason: string }
 app.patch('/api/admin/patient-status/:id', async (req, res) => {
     const { is_active, reason } = req.body;
     const patientId = req.params.id;
@@ -3009,9 +2742,6 @@ app.patch('/api/admin/patient-status/:id', async (req, res) => {
     }
 });
 
-
-// ── Patient-specific report data ──────────────────────────────────────────────
-// GET /api/admin/patient-report/:id?type=patient_history|patient_prescriptions|patient_lab_tests
 app.get('/api/admin/patient-report/:id', async (req, res) => {
     const patientId = req.params.id;
     const type = req.query.type || 'patient_history';
@@ -3065,11 +2795,6 @@ app.get('/api/admin/patient-report/:id', async (req, res) => {
     }
 });
 
-
-// ══════════════════════════════════════════════════════════════════════════════
-//  REPORT GENERATOR — Main endpoint for all 14 report types
-//  GET /api/admin/reports/generate?type=<id>&from=<date>&to=<date>
-// ══════════════════════════════════════════════════════════════════════════════
 app.get('/api/admin/reports/generate', async (req, res) => {
     const { type, from, to } = req.query;
     if (!type || !from || !to) {
@@ -3080,8 +2805,6 @@ app.get('/api/admin/reports/generate', async (req, res) => {
         let data = { success: true };
 
         switch (type) {
-
-            // ── Operational ────────────────────────────────────────────────
             case 'opd_patient_count': {
                 const [daily] = await db.query(`
                     SELECT appointment_day AS date, COUNT(DISTINCT patient_id) AS count
@@ -3101,98 +2824,61 @@ app.get('/api/admin/reports/generate', async (req, res) => {
             case 'appointment_statistics': {
                 const [[summary]] = await db.query(`
                     SELECT COUNT(*) AS total,
-                           SUM(status='completed') AS completed,
-                           SUM(status='cancelled') AS cancelled,
-                           SUM(status='no_show')   AS no_show,
-                           SUM(status='booked')    AS booked
+                        SUM(status='completed') AS completed,
+                        SUM(status='cancelled') AS cancelled,
+                        SUM(status='no_show')   AS no_show,
+                        SUM(status='booked')    AS booked
                     FROM appointments
                     WHERE appointment_day BETWEEN ? AND ?
                 `, [from, to]);
+
+                const duration = new Date(to) - new Date(from);
+                const prevTo = new Date(new Date(from) - 1);
+                const prevFrom = new Date(prevTo - duration);
+                const prevFromStr = prevFrom.toISOString().split('T')[0];
+                const prevToStr   = prevTo.toISOString().split('T')[0];
+
+                const [[prevSummary]] = await db.query(`
+                    SELECT COUNT(*) AS total,
+                        SUM(status='completed') AS completed,
+                        SUM(status='cancelled') AS cancelled,
+                        SUM(status='no_show')   AS no_show,
+                        SUM(status='booked')    AS booked
+                    FROM appointments
+                    WHERE appointment_day BETWEEN ? AND ?
+                `, [prevFromStr, prevToStr]);
+
                 const [byDoctor] = await db.query(`
                     SELECT CONCAT(s.first_name,' ',s.surname) AS doctor_name,
-                           COUNT(*) AS total,
-                           SUM(a.status='completed') AS completed,
-                           SUM(a.status='cancelled') AS cancelled
+                        COUNT(*) AS total,
+                        SUM(a.status='completed') AS completed,
+                        SUM(a.status='cancelled') AS cancelled
                     FROM appointments a
                     LEFT JOIN staff s ON a.doctor_id = s.staff_id
                     WHERE a.appointment_day BETWEEN ? AND ?
                     GROUP BY a.doctor_id
                     ORDER BY total DESC
                 `, [from, to]);
-                data = { ...data, summary, byDoctor };
+
+                data = { ...data, summary, prevSummary, byDoctor };
                 break;
             }
 
             case 'doctor_workload': {
                 const [workload] = await db.query(`
                     SELECT CONCAT(s.first_name,' ',s.surname) AS doctor_name,
-                           COUNT(*) AS total,
-                           SUM(a.status='completed') AS completed,
-                           SUM(a.status='cancelled') AS cancelled,
-                           SUM(a.status='no_show')   AS no_show
+                        COUNT(*) AS total,
+                        SUM(a.status='completed') AS completed,
+                        SUM(a.status='cancelled') AS cancelled,
+                        SUM(a.status='no_show')   AS no_show
                     FROM appointments a
                     LEFT JOIN staff s ON a.doctor_id = s.staff_id
                     WHERE a.appointment_day BETWEEN ? AND ?
-                      AND s.role_id = (SELECT role_id FROM roles WHERE role_name='Doctor' LIMIT 1)
+                    AND s.role_id = (SELECT role_id FROM roles WHERE role_name='Doctor' LIMIT 1)
                     GROUP BY a.doctor_id
                     ORDER BY total DESC
                 `, [from, to]);
                 data = { ...data, workload };
-                break;
-            }
-
-            case 'staff_activity': {
-                const [staff] = await db.query(`
-                    SELECT CONCAT(s.first_name,' ',s.surname) AS name,
-                           r.role_name AS role,
-                           COUNT(al.log_id) AS action_count,
-                           MAX(al.changed_at) AS last_active
-                    FROM staff s
-                    LEFT JOIN roles r ON s.role_id = r.role_id
-                    LEFT JOIN audit_log al ON al.changed_by = s.email
-                        AND al.changed_at BETWEEN ? AND ?
-                    WHERE s.is_active = 1
-                    GROUP BY s.staff_id
-                    ORDER BY action_count DESC
-                `, [from + ' 00:00:00', to + ' 23:59:59']);
-                data = { ...data, staff };
-                break;
-            }
-
-            case 'system_usage': {
-                const [usage] = await db.query(`
-                    SELECT log_id, action, changed_by AS user, changed_at AS timestamp,
-                           table_name AS resource
-                    FROM audit_log
-                    WHERE changed_at BETWEEN ? AND ?
-                    ORDER BY changed_at DESC
-                    LIMIT 200
-                `, [from + ' 00:00:00', to + ' 23:59:59']);
-                data = { ...data, usage, total_logins: usage.length };
-                break;
-            }
-
-            // ── Clinical ───────────────────────────────────────────────────
-            case 'treatments_per_doctor': {
-                const [treatments] = await db.query(`
-                    SELECT CONCAT(s.first_name,' ',s.surname) AS doctor_name,
-                           COUNT(DISTINCT a.appointment_id) AS total_treatments,
-                           COUNT(DISTINCT pr.prescription_id) AS prescriptions,
-                           COUNT(DISTINCT lt.test_id) AS lab_orders
-                    FROM staff s
-                    LEFT JOIN appointments a ON a.doctor_id = s.staff_id
-                        AND a.appointment_day BETWEEN ? AND ?
-                        AND a.status = 'completed'
-                    LEFT JOIN prescription pr ON pr.prescribed_by = s.staff_id
-                        AND pr.prescribed_date BETWEEN ? AND ?
-                    LEFT JOIN lab_test lt ON lt.requested_by = s.staff_id
-                        AND lt.test_date BETWEEN ? AND ?
-                    WHERE s.role_id = (SELECT role_id FROM roles WHERE role_name='Doctor' LIMIT 1)
-                      AND s.is_active = 1
-                    GROUP BY s.staff_id
-                    ORDER BY total_treatments DESC
-                `, [from, to, from, to, from, to]);
-                data = { ...data, treatments };
                 break;
             }
 
@@ -3217,7 +2903,7 @@ app.get('/api/admin/reports/generate', async (req, res) => {
             case 'lab_test_statistics': {
                 const [tests] = await db.query(`
                     SELECT t.test_name, COUNT(*) AS count,
-                           SUM(lt.status='completed') AS completed
+                        SUM(lt.status='completed') AS completed
                     FROM lab_test lt
                     LEFT JOIN test_catalog t ON lt.test_catalog_id = t.test_catalog_id
                     WHERE lt.test_date BETWEEN ? AND ?
@@ -3232,9 +2918,7 @@ app.get('/api/admin/reports/generate', async (req, res) => {
                 break;
             }
 
-            // ── Management ─────────────────────────────────────────────────
             case 'patient_registration_growth': {
-                // Try created_at first, fall back to patient_id ordering
                 let growth;
                 try {
                     [growth] = await db.query(`
@@ -3244,7 +2928,6 @@ app.get('/api/admin/reports/generate', async (req, res) => {
                         GROUP BY period ORDER BY period
                     `, [from + ' 00:00:00', to + ' 23:59:59']);
                 } catch (e) {
-                    // If created_at column doesn't exist, use patient_id ranges as proxy
                     [growth] = await db.query(`
                         SELECT CONCAT('Record #', FLOOR(patient_id/10)*10, '-', FLOOR(patient_id/10)*10+9) AS period,
                             COUNT(*) AS count
@@ -3252,92 +2935,6 @@ app.get('/api/admin/reports/generate', async (req, res) => {
                     `);
                 }
                 data = { ...data, growth };
-                break;
-            }
-
-            case 'feedback_complaint': {
-                const [feedback] = await db.query(`
-                    SELECT f.feedback_id, f.comment, f.admin_note,
-                           f.date_submitted, f.status,
-                           p.full_name AS patient_name,
-                           CONCAT(s.first_name,' ',s.surname) AS user_name
-                    FROM feedback f
-                    LEFT JOIN patient p ON f.patient_id = p.patient_id
-                    LEFT JOIN user_account ua ON f.user_id = ua.user_id
-                    LEFT JOIN staff s ON ua.staff_id = s.staff_id
-                    WHERE f.date_submitted BETWEEN ? AND ?
-                    ORDER BY f.date_submitted DESC
-                `, [from + ' 00:00:00', to + ' 23:59:59']);
-                data = { ...data, feedback };
-                break;
-            }
-
-            case 'opd_capacity_utilization': {
-                const [slots] = await db.query(`
-                    SELECT
-                        a.appointment_day AS date,
-                        a.start_time AS slot,
-                        COUNT(*) AS booked,
-                        COALESCE(
-                            (SELECT CAST(setting_value AS UNSIGNED) FROM system_settings WHERE setting_key='slot_capacity' LIMIT 1),
-                            6
-                        ) AS capacity
-                    FROM appointments a
-                    WHERE a.appointment_day BETWEEN ? AND ?
-                    GROUP BY a.appointment_day, a.start_time
-                    ORDER BY a.appointment_day, a.start_time
-                `, [from, to]);
-                // Compute utilization percentage
-                const enriched = slots.map(s => ({
-                    ...s,
-                    utilization_pct: s.capacity > 0 ? Math.round((s.booked / s.capacity) * 100) : 0
-                }));
-                data = { ...data, slots: enriched };
-                break;
-            }
-
-            // ── Audit ──────────────────────────────────────────────────────
-            case 'login_activity': {
-                const [logins] = await db.query(`
-                    SELECT log_id, changed_by AS username, action,
-                           record_id, changed_at AS timestamp
-                    FROM audit_log
-                    WHERE (action LIKE '%login%' OR action LIKE '%LOGIN%' OR action LIKE '%signin%')
-                      AND changed_at BETWEEN ? AND ?
-                    ORDER BY changed_at DESC
-                    LIMIT 300
-                `, [from + ' 00:00:00', to + ' 23:59:59']);
-                const unique_users = [...new Set(logins.map(l => l.username))].length;
-                data = { ...data, logins, unique_users };
-                break;
-            }
-
-            case 'password_reset_otp': {
-                const [events] = await db.query(`
-                    SELECT log_id, changed_by AS username, action,
-                           record_id, changed_at AS timestamp
-                    FROM audit_log
-                    WHERE (action LIKE '%password%' OR action LIKE '%otp%' OR action LIKE '%reset%')
-                      AND changed_at BETWEEN ? AND ?
-                    ORDER BY changed_at DESC
-                    LIMIT 200
-                `, [from + ' 00:00:00', to + ' 23:59:59']);
-                data = { ...data, events,
-                    password_resets: events.filter(e => /password|reset/i.test(e.action || '')).length,
-                    otp_events:      events.filter(e => /otp/i.test(e.action || '')).length,
-                };
-                break;
-            }
-
-            case 'data_modification_logs': {
-                const [logs] = await db.query(`
-                    SELECT log_id, table_name, action, record_id, changed_by, changed_at
-                    FROM audit_log
-                    WHERE changed_at BETWEEN ? AND ?
-                    ORDER BY changed_at DESC
-                    LIMIT 500
-                `, [from + ' 00:00:00', to + ' 23:59:59']);
-                data = { ...data, logs };
                 break;
             }
 
@@ -3356,9 +2953,63 @@ app.get('/api/admin/reports/generate', async (req, res) => {
     }
 });
 
+app.get('/api/admin/export-data', async (req, res) => {
+    const { table, columns, date_from, date_to } = req.query;
 
-// ── Enhanced Logs with date filtering ────────────────────────────────────────
-// REPLACE existing /api/admin/logs with this version:
+    // Whitelist tables
+    const allowedTables = ['appointments', 'patient', 'staff', 'prescriptions', 'lab_test', 'feedback'];
+    if (!allowedTables.includes(table)) {
+        return res.status(400).json({ success: false, message: 'Invalid table name' });
+    }
+
+    // Define date column for each table
+    const dateColumnMap = {
+        appointments: 'appointment_day',
+        patient: 'created_at',
+        staff: 'created_at',
+        prescriptions: 'prescribed_date',
+        lab_test: 'test_date',
+        feedback: 'date_submitted'
+    };
+    const dateCol = dateColumnMap[table];
+
+    // Whitelist allowed columns per table (example for appointments)
+    const allowedColumnsMap = {
+        appointments: ['appointment_id', 'patient_id', 'doctor_id', 'appointment_day', 'start_time', 'end_time', 'queue_no', 'visit_type', 'status', 'is_present', 'created_at', 'completed_at'],
+        patient: ['patient_id', 'full_name', 'nic', 'dob', 'gender', 'phone', 'email', 'address', 'blood_group', 'allergies', 'chronic_conditions', 'emergency_contact', 'civil_status', 'barcode', 'is_active', 'created_at'],
+        staff: ['staff_id', 'first_name', 'surname', 'email', 'phone', 'nic', 'role_id', 'is_active', 'created_at'],
+        prescriptions: ['prescription_id', 'patient_id', 'prescribed_by', 'prescribed_date', 'medication_id', 'dosage', 'duration', 'fulfilled_at', 'pharmacist_id'],
+        medical_test: ['test_id', 'patient_id', 'requested_by', 'test_date', 'test_catalog_id', 'status', 'result', 'sample_collected_at', 'completed_at'],
+        feedback: ['feedback_id', 'patient_id', 'user_id', 'comment', 'rating', 'date_submitted', 'status', 'admin_note']
+    };
+
+    let selectedColumns = '*';
+    if (columns) {
+        const requested = columns.split(',');
+        const allowed = allowedColumnsMap[table];
+        const valid = requested.filter(col => allowed.includes(col));
+        if (valid.length > 0) {
+            selectedColumns = valid.join(',');
+        }
+    }
+
+    let sql = `SELECT ${selectedColumns} FROM ${table} WHERE 1=1`;
+    const params = [];
+
+    if (date_from && date_to && dateCol) {
+        sql += ` AND ${dateCol} BETWEEN ? AND ?`;
+        params.push(date_from, date_to);
+    }
+
+    try {
+        const [rows] = await db.query(sql, params);
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('Export error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 app.get('/api/admin/logs', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 500, 1000);
     const { from, to } = req.query;
@@ -3411,10 +3062,7 @@ app.post('/api/admin/opd-settings', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Get all feedback
-// GET /api/admin/feedback
-// ─────────────────────────────────────────────────────────────────────────────
+
 app.get('/api/admin/feedback', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -3434,11 +3082,6 @@ app.get('/api/admin/feedback', async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN: Update feedback (admin note, status)
-// PATCH /api/admin/feedback/:id
-// Body: { admin_note, status }
-// ─────────────────────────────────────────────────────────────────────────────
 app.patch('/api/admin/feedback/:id', async (req, res) => {
     const { admin_note, status } = req.body;
     try {
@@ -3451,31 +3094,9 @@ app.patch('/api/admin/feedback/:id', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
-// ══════════════════════════════════════════════════════════════════════════════
-//  NOTE ON DATABASE COLUMN: patient.is_active
-//  If your patient table doesn't have is_active, run this migration:
-//
-//  ALTER TABLE patient ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1;
-//
-//  NOTE ON DATABASE COLUMN: patient.created_at
-//  If missing:
-//  ALTER TABLE patient ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;
-// ══════════════════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════════════
-//  SmartOPD — Receptionist API Routes
-//  Add these to server.js alongside your existing routes.
-//  db = pool.promise()  →  const [rows] = await db.query(sql, params)
-// ═══════════════════════════════════════════════════════════════════════════
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// RECEPTION DASHBOARD STATS
-// GET /api/receptionist/stats
-// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // RECEPTIONIST STATS
-// GET /api/receptionist/stats
-// FIX: replaced broken "new registrations" query with real completed count
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/receptionist/stats', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
@@ -3513,11 +3134,6 @@ app.get('/api/receptionist/stats', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TODAY'S QUEUE
-// GET /api/receptionist/queue
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/receptionist/queue', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
@@ -3540,11 +3156,6 @@ app.get('/api/receptionist/queue', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// VERIFY ARRIVAL — search by NIC or barcode
-// GET /api/receptionist/verify-arrival?term=XXX
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/receptionist/verify-arrival', async (req, res) => {
     const { term } = req.query;
     if (!term) return res.status(400).json({ success: false, message: 'Search term required.' });
@@ -3585,11 +3196,6 @@ app.get('/api/receptionist/verify-arrival', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK ARRIVED
-// POST /api/receptionist/mark-arrived
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/receptionist/mark-arrived', async (req, res) => {
     const { appointment_id } = req.body;
     if (!appointment_id)
@@ -3610,12 +3216,6 @@ app.post('/api/receptionist/mark-arrived', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// REGISTER PATIENT
-// POST /api/receptionist/register-patient
-// ENHANCEMENT: Now accepts all fields including medical info
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/receptionist/register-patient', async (req, res) => {
     const {
         full_name, nic, dob, gender, phone, email, address,
@@ -3739,12 +3339,6 @@ app.post('/api/receptionist/register-patient', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ALL APPOINTMENTS
-// GET /api/receptionist/appointments
-// ENHANCEMENT: Supports single date, date range (from/to), or all history
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/receptionist/appointments', async (req, res) => {
     const { date, from, to, status } = req.query;
 
@@ -3789,12 +3383,6 @@ app.get('/api/receptionist/appointments', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STAFF FEEDBACK — submit
-// POST /api/staff/feedback
-// ENHANCEMENT: Accepts rating and category fields
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/staff/feedback', async (req, res) => {
     const { staff_id, comment, rating, category } = req.body;
 
@@ -3827,11 +3415,6 @@ app.post('/api/staff/feedback', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STAFF FEEDBACK — history
-// GET /api/staff/feedback/:staff_id
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/staff/feedback/:staff_id', async (req, res) => {
     const { staff_id } = req.params;
     try {
@@ -3849,6 +3432,7 @@ app.get('/api/staff/feedback/:staff_id', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  START SERVER
 // ═══════════════════════════════════════════════════════════════════════════

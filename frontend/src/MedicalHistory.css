@@ -354,3 +354,53 @@
     .mh-expand-all-btn { align-self: flex-start; }
 }
 
+.mh-status-pending { background: #fffbeb; color: #d97706; border: 1px solid #fed7aa; }
+.mh-status-inprogress { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.mh-status-done { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.mh-tl-dot-lab { background: #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
+
+/* Lab status badges (reusing MedicalHistory card style) */
+.mh-status-pending {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fed7aa;
+}
+.mh-status-inprogress {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+.mh-status-done {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+.mh-status-urgent {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+/* Print button style (used for lab action buttons) */
+.mh-print-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.mh-print-btn:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+.mh-print-btn:active {
+    transform: translateY(0);
+}

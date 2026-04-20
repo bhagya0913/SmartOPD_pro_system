@@ -1401,8 +1401,8 @@ export default function DoctorDashboard({ user, setUser }) {
         { id: 'consult',       label: 'Consultation',    icon: Stethoscope },
         { id: 'history',       label: 'Patient History', icon: ClipboardList },
         { id: 'profile',       label: 'My Profile',      icon: User },
-        { id: 'notifications', label: 'Notifications',   icon: Bell },
-        { id: 'feedback',      label: 'Feedback',         icon: MessageSquare },
+        // { id: 'notifications', label: 'Notifications',   icon: Bell },
+        //{/* id: 'feedback',      label: 'Feedback',         icon: MessageSquare */}
     ];
 
     return (

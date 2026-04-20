@@ -44,11 +44,10 @@ export default function Landing() {
             <main className="max-w-7xl mx-auto px-4 py-16 w-full">
                 <div className="text-center mb-12">
                     <h2 className="hero-title">
-                        SmartOPD System
+                        Welcome to SmartOPD
                     </h2>
                     <p className="hero-subtitle">
-                       OPD (Outpatient Department) Management System to experience a seamless healthcare journey, 
-                       book appointments, and access your medical records instantly.
+                       Manage your Outpatient appointments efficiently and effectively<br/> OPD (Outpatient Department) Management System 
                     </p>
                 </div>
 

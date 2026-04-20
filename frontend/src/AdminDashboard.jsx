@@ -1,6 +1,8 @@
-// import html2pdf from 'html2pdf.js';
+import html2pdf from 'html2pdf.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
+
 import {
     Home, Users, Settings, BarChart3, FileText, LogOut, UserPlus,
     Activity, Calendar, Clock, X, Plus, Trash2, Mail, Phone,
@@ -9,7 +11,8 @@ import {
     Download, MessageSquare, Star, Filter, ChevronDown, Hash,
     CreditCard, Eye, EyeOff, Check, AlertCircle, Info, Edit3,
     UserCheck, UserX, ClipboardList, Building2, BarChart2,
-    FileBarChart, Lock, Key, Database, Layers, ChevronUp, ExternalLink
+    FileBarChart, Lock, Key, Database, Layers, ChevronUp, ExternalLink,
+   
 } from 'lucide-react';
 import './AdminDashboard.css';
 
@@ -39,76 +42,61 @@ const roleIcon = r => {
     return m[r] || <User size={13}/>;
 };
 
-function downloadHTMLReport(title, from, to, bodyHTML) {
+function downloadPDFReport(title, from, to, bodyHTML) {
     const now = new Date();
-    const css = `
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;font-size:13px;padding:0 32px}
-        .rpt-header{display:flex;justify-content:space-between;align-items:flex-start;padding:28px 0 18px;border-bottom:3px solid #92400e;margin-bottom:24px}
-        .rpt-logo{font-size:22px;font-weight:800;color:#92400e;letter-spacing:-.02em}
-        .rpt-hospital{font-size:12px;color:#64748b;margin-top:3px}
-        .rpt-badge{display:inline-block;background:#fdf8f0;border:1px solid #fed7aa;border-radius:6px;padding:4px 12px;font-size:10px;font-weight:700;color:#92400e}
-        .rpt-meta{font-size:10px;color:#94a3b8;margin-top:5px;text-align:right}
-        h1.rpt-title{font-size:21px;font-weight:800;color:#0f172a;margin-bottom:5px;letter-spacing:-.02em}
-        .rpt-period{display:inline-block;font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 14px;margin-bottom:22px}
-        .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
-        .stat-card{border-radius:10px;padding:14px 16px;border:1.5px solid #e2e8f0;background:#f8fafc}
-        .stat-card.blue{border-color:#bfdbfe;background:#eff6ff}.stat-card.green{border-color:#bbf7d0;background:#f0fdf4}
-        .stat-card.amber{border-color:#fed7aa;background:#fffbeb}.stat-card.red{border-color:#fecaca;background:#fef2f2}
-        .stat-card.purple{border-color:#ddd6fe;background:#faf5ff}
-        .stat-val{font-size:28px;font-weight:800;line-height:1}.stat-val.blue{color:#2563eb}.stat-val.green{color:#16a34a}
-        .stat-val.amber{color:#d97706}.stat-val.red{color:#dc2626}.stat-val.purple{color:#7c3aed}
-        .stat-label{font-size:10px;color:#64748b;margin-top:5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-        .section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#0f172a;margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
-        table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px}
-        thead tr{background:#0f172a}
-        th{padding:9px 13px;text-align:left;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#fff}
-        td{padding:8px 13px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
-        tr:nth-child(even) td{background:#fafafa}
-        .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700}
-        .badge.green{background:#dcfce7;color:#15803d}.badge.red{background:#fee2e2;color:#b91c1c}
-        .badge.blue{background:#dbeafe;color:#1d4ed8}.badge.amber{background:#fef3c7;color:#b45309}
-        .progress-wrap{display:flex;align-items:center;gap:8px}
-        .progress-bar{flex:1;height:6px;background:#f1f5f9;border-radius:10px;overflow:hidden}
+    const style = `
+        @page{margin:20mm 18mm;size:A4}*{box-sizing:border-box}
+        body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;margin:0;padding:0 24px;font-size:13px;background:#fff}
+        .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding:20px 0 14px;border-bottom:3px solid #92400e}
+        .logo{font-size:22px;font-weight:800;color:#92400e}.hospital{font-size:12px;color:#64748b;margin-top:2px}
+        .header-right{text-align:right}.badge{background:#fdf8f0;border:1px solid #fed7aa;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;color:#92400e;display:inline-block}
+        .meta{font-size:10px;color:#94a3b8;margin-top:4px}
+        h1{font-size:20px;font-weight:800;color:#0f172a;margin:16px 0 4px}
+        .period{font-size:12px;color:#64748b;margin-bottom:18px;padding:8px 12px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;display:inline-block}
+        .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px}
+        .stat-card{border:1.5px solid #e2e8f0;border-radius:8px;padding:12px 14px}
+        .stat-val{font-size:26px;font-weight:800}.stat-label{font-size:10px;color:#64748b;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+        .section-title{font-size:12px;font-weight:800;color:#0f172a;margin:20px 0 8px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;text-transform:uppercase;letter-spacing:.06em}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
+        thead{background:#92400e}th{padding:8px 12px;text-align:left;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:white}
+        td{padding:7px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}tr:nth-child(even) td{background:#fafafa}
+        .badge-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+        .green{color:#16a34a}.red{color:#dc2626}.blue{color:#2563eb}.amber{color:#d97706}.purple{color:#7c3aed}
+        .bg-green{background:#dcfce7}.bg-red{background:#fee2e2}.bg-blue{background:#dbeafe}.bg-amber{background:#fef3c7}.bg-purple{background:#f3e8ff}
+        .progress-row{display:flex;align-items:center;gap:10px}
+        .progress-track{flex:1;height:6px;background:#f1f5f9;border-radius:10px;overflow:hidden}
         .progress-fill{height:100%;border-radius:10px}
-        .no-data{text-align:center;color:#94a3b8;font-style:italic;padding:24px}
-        .info-box{background:#fdf8f0;border:1.5px solid #fed7aa;border-radius:8px;padding:13px 17px;margin-bottom:18px;font-size:12px;line-height:1.7}
-        .footer{margin-top:40px;padding-top:12px;border-top:2px solid #e2e8f0;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
-        .confidential{font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.08em}
-        .green{color:#16a34a}.red{color:#dc2626}.blue{color:#2563eb}.amber{color:#d97706}
-        code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:10px;font-family:monospace}
+        .no-data{text-align:center;color:#94a3b8;font-style:italic;padding:20px}
+        .footer{margin-top:30px;padding-top:10px;border-top:2px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between}
     `;
-    const fullHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
-    <style>${css}</style></head><body>
-        <div class="rpt-header">
-            <div><div class="rpt-logo">SmartOPD</div><div class="rpt-hospital">Base Hospital, Kiribathgoda</div></div>
-            <div><div class="rpt-badge">OFFICIAL REPORT</div><div class="rpt-meta">Generated: ${fmtDTime(now)}</div></div>
+    const fullHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${style}</style></head><body>
+        <div class="header">
+            <div><div class="logo">SmartOPD</div><div class="hospital">Base Hospital, Kiribathgoda</div></div>
+            <div class="header-right"><div class="badge">OFFICIAL REPORT</div><div class="meta">Generated: ${fmtDTime(now)}</div></div>
         </div>
-        <h1 class="rpt-title">${title}</h1>
-        <div class="rpt-period">Reporting period: <strong>${fmtDate(from)}</strong> — <strong>${fmtDate(to)}</strong></div>
+        <h1>${title}</h1>
+        <div class="period">📅 Reporting Period: <strong>${fmtDate(from)}</strong> — <strong>${fmtDate(to)}</strong></div>
         ${bodyHTML}
         <div class="footer">
-            <span>SmartOPD — Base Hospital Kiribathgoda &nbsp;|&nbsp; For internal administrative use only</span>
-            <span class="confidential">Confidential</span>
+            <span>SmartOPD — Base Hospital Kiribathgoda | For internal use only</span>
+            <span style="color:#dc2626;font-weight:700">CONFIDENTIAL</span>
         </div>
     </body></html>`;
 
-    const blob = new Blob([fullHTML], { type: 'text/html' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const safeName = title.replace(/[\s/\\:*?"<>|]/g, '_');
-    a.href     = url;
-    a.download = `${safeName}_${now.toISOString().slice(0,10)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const element = document.createElement('div');
+    element.innerHTML = fullHTML;
+    document.body.appendChild(element);
+    const opt = {
+        margin: [0.5, 0.5, 0.5, 0.5],
+        filename: `${title.replace(/[\s/\\:*?"<>|]/g, '_')}_${now.toISOString().slice(0,10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, letterRendering: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save().then(() => {
+        document.body.removeChild(element);
+    });
 }
-
-// ── ReportsSection ─────────────────────────────────────────────────────────────
-
-
-
 
 // ── Main shell ────────────────────────────────────────────────────────────────
 export default function AdminDashboard({ user, setUser }) {
@@ -127,6 +115,7 @@ export default function AdminDashboard({ user, setUser }) {
         { id:'patients',  label:'Patient Management',  icon:UserCheck },
         { id:'settings',  label:'OPD Settings',        icon:Settings },
         { id:'reports',   label:'Reports',             icon:BarChart3 },
+        { id:'export', label:'Data Export', icon:Download },
         { id:'logs',      label:'System Logs',         icon:FileText },
         { id:'feedback',  label:'Feedback',            icon:MessageSquare },
     ];
@@ -188,6 +177,7 @@ export default function AdminDashboard({ user, setUser }) {
                     {activeTab === 'patients' && <PatientManagementSection/>}
                     {activeTab === 'settings' && <OPDSettings/>}
                     {activeTab === 'reports'  && <ReportsSection/>}
+                    {activeTab === 'export' && <DataExportSection />}
                     {activeTab === 'logs'     && <LogsSection/>}
                     {activeTab === 'feedback' && <FeedbackSection/>}
                 </div>
@@ -664,7 +654,7 @@ function PatientManagementSection() {
             }
 
             const rptLabel = PATIENT_REPORTS.find(rt=>rt.id===reportId)?.label || 'Patient Report';
-            downloadHTMLReport(`${rptLabel} — ${patient.full_name}`, '2000-01-01', new Date().toISOString().split('T')[0], bodyHTML);
+            downloadPDFReport(`${rptLabel} — ${patient.full_name}`, '2000-01-01', new Date().toISOString().split('T')[0], bodyHTML);
             setReportModal(null);
         } catch (e) {
             alert('Could not generate report. Check console for details.');
@@ -865,7 +855,6 @@ function PatientManagementSection() {
     );
 }
 
-
 // ══════════════════════════════════════════════════════════════════════════════
 //  OPD SETTINGS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1006,8 +995,6 @@ const REPORT_CATEGORIES = [
             { id:'opd_patient_count',         label:'OPD Patient Count',                icon:Users,         desc:'Total patients seen in OPD per day/period' },
             { id:'appointment_statistics',    label:'Appointment Statistics',           icon:Calendar,      desc:'Booked, completed, cancelled, no-show breakdown' },
             { id:'doctor_workload',           label:'Doctor Workload Report',           icon:Stethoscope,   desc:'Appointments handled per doctor' },
-            { id:'staff_activity',            label:'Staff Activity Report',            icon:ClipboardList, desc:'Daily/weekly actions by staff role' },
-            { id:'system_usage',              label:'System Usage Report',              icon:BarChart3,     desc:'Login patterns, feature usage statistics' },
         ]
     },
     {
@@ -1018,7 +1005,6 @@ const REPORT_CATEGORIES = [
         bg: '#f0fdf4',
         border: '#bbf7d0',
         reports: [
-            { id:'treatments_per_doctor',     label:'Total Treatments Per Doctor',     icon:Stethoscope,   desc:'Treatment count and types per physician' },
             { id:'prescription_statistics',   label:'Prescription Statistics',         icon:Pill,          desc:'Most prescribed medications, frequency analysis' },
             { id:'lab_test_statistics',       label:'Lab Test Statistics',             icon:FlaskConical,  desc:'Test types ordered, completion rates' },
         ]
@@ -1032,21 +1018,6 @@ const REPORT_CATEGORIES = [
         border: '#ddd6fe',
         reports: [
             { id:'patient_registration_growth', label:'Patient Registration Growth',   icon:TrendingUp,    desc:'New patient registrations over time' },
-            { id:'feedback_complaint',          label:'Feedback & Complaint Report',   icon:MessageSquare, desc:'Patient and staff feedback summary' },
-            { id:'opd_capacity_utilization',    label:'OPD Capacity Utilization',     icon:BarChart2,     desc:'Slot fill rates and peak hour analysis' },
-        ]
-    },
-    {
-        id: 'audit',
-        label: 'Audit Reports',
-        icon: Shield,
-        color: '#d97706',
-        bg: '#fffbeb',
-        border: '#fed7aa',
-        reports: [
-            { id:'login_activity',            label:'Login Activity Report',           icon:Lock,          desc:'User login history and access patterns' },
-            { id:'password_reset_otp',        label:'Password Reset / OTP Usage',     icon:Key,           desc:'Security events: resets, OTP usage' },
-            { id:'data_modification_logs',    label:'Data Modification Logs',         icon:Database,      desc:'All record creation, updates, deletions' },
         ]
     },
 ];
@@ -1092,25 +1063,17 @@ function ReportsSection() {
     };
 
     const buildReportHTML = (report, data, from, to) => {
-        const d = data || {};
-        switch(report.id) {
-            case 'opd_patient_count': return buildOpdPatientCountHTML(d);
-            case 'appointment_statistics': return buildAppointmentStatsHTML(d);
-            case 'doctor_workload': return buildDoctorWorkloadHTML(d);
-            case 'staff_activity': return buildStaffActivityHTML(d);
-            case 'system_usage': return buildSystemUsageHTML(d);
-            case 'treatments_per_doctor': return buildTreatmentsPerDoctorHTML(d);
-            case 'prescription_statistics': return buildPrescriptionStatsHTML(d);
-            case 'lab_test_statistics': return buildLabTestStatsHTML(d);
-            case 'patient_registration_growth': return buildRegistrationGrowthHTML(d);
-            case 'feedback_complaint': return buildFeedbackReportHTML(d);
-            case 'opd_capacity_utilization': return buildCapacityUtilizationHTML(d);
-            case 'login_activity': return buildLoginActivityHTML(d);
-            case 'password_reset_otp': return buildPasswordResetHTML(d);
-            case 'data_modification_logs': return buildDataModLogsHTML(d);
-            default: return `<div style="padding:20px;color:#64748b">No data available for this report type.</div>`;
-        }
-    };
+    const d = data || {};
+    switch(report.id) {
+        case 'opd_patient_count': return buildOpdPatientCountHTML(d);
+        case 'appointment_statistics': return buildAppointmentStatsHTML(d);
+        case 'doctor_workload': return buildDoctorWorkloadHTML(d);
+        case 'prescription_statistics': return buildPrescriptionStatsHTML(d);
+        case 'lab_test_statistics': return buildLabTestStatsHTML(d);
+        case 'patient_registration_growth': return buildRegistrationGrowthHTML(d);
+        default: return `<div style="padding:20px;color:#64748b">No data available for this report type.</div>`;
+    }
+};
 
     const openReportTab = () => {
         if (!reportResult) return;
@@ -1163,7 +1126,7 @@ function ReportsSection() {
 
     const downloadReport = () => {
         if (!reportResult) return;
-        downloadHTMLReport(reportResult.title, reportResult.from, reportResult.to, reportResult.htmlContent);
+        downloadPDFReport(reportResult.title, reportResult.from, reportResult.to, reportResult.htmlContent);
     };
 
     // ── HTML builders ────────────────────────────────────────────────────────
@@ -1191,33 +1154,67 @@ function ReportsSection() {
     }
 
     function buildAppointmentStatsHTML(d) {
-        const s = d.summary || {};
-        const total = s.total || 0;
-        const pct = (n,t) => t>0 ? ((n/t)*100).toFixed(1)+'%' : '0%';
-        return `
-            <div class="stat-grid">
-                ${statCard(total,'Total Appointments','#2563eb')}
-                ${statCard(s.completed||0,'Completed','#16a34a')}
-                ${statCard(s.booked||0,'Booked/Pending','#7c3aed')}
-                ${statCard(s.cancelled||0,'Cancelled','#d97706')}
-                ${statCard(s.no_show||0,'No Shows','#dc2626')}
+    const s = d.summary || {};
+    const p = d.prevSummary || {};
+
+    const trend = (current, previous) => {
+        if (!previous || previous === 0) return '<span style="color:#94a3b8">—</span>';
+        const change = ((current - previous) / previous) * 100;
+        const abs = Math.abs(change).toFixed(1);
+        if (change > 0) return `<span style="color:#16a34a">▲ ${abs}%</span>`;
+        if (change < 0) return `<span style="color:#dc2626">▼ ${abs}%</span>`;
+        return `<span style="color:#64748b">→ 0%</span>`;
+    };
+
+    let statsHtml = `
+        <div class="stat-grid">
+            <div class="stat-card" style="border-color:#2563eb22">
+                <div class="stat-val" style="color:#2563eb">${s.total||0}</div>
+                <div class="stat-label">Total Appointments</div>
+                <div style="font-size:9px; margin-top:4px;">vs prev: ${trend(s.total, p.total)}</div>
             </div>
-            <div class="section-title">Appointment Outcome Breakdown</div>
-            <table><thead><tr><th>Status</th><th>Count</th><th>Percentage</th><th>Distribution</th></tr></thead><tbody>
-            ${[['Completed',s.completed||0,'#16a34a'],['Booked/Pending',s.booked||0,'#7c3aed'],['Cancelled',s.cancelled||0,'#d97706'],['No Show',s.no_show||0,'#dc2626']].map(([label,val,color])=>{
-                const p = total>0?Math.round((val/total)*100):0;
-                return `<tr><td><strong>${label}</strong></td><td>${val}</td><td style="color:${color};font-weight:700">${pct(val,total)}</td><td><div class="progress-row"><div class="progress-track"><div class="progress-fill" style="width:${p}%;background:${color}"></div></div></div></td></tr>`;
+            <div class="stat-card" style="border-color:#16a34a22">
+                <div class="stat-val" style="color:#16a34a">${s.completed||0}</div>
+                <div class="stat-label">Completed</div>
+                <div style="font-size:9px; margin-top:4px;">vs prev: ${trend(s.completed, p.completed)}</div>
+            </div>
+            <div class="stat-card" style="border-color:#7c3aed22">
+                <div class="stat-val" style="color:#7c3aed">${s.booked||0}</div>
+                <div class="stat-label">Booked/Pending</div>
+                <div style="font-size:9px; margin-top:4px;">vs prev: ${trend(s.booked, p.booked)}</div>
+            </div>
+            <div class="stat-card" style="border-color:#d9770622">
+                <div class="stat-val" style="color:#d97706">${s.cancelled||0}</div>
+                <div class="stat-label">Cancelled</div>
+                <div style="font-size:9px; margin-top:4px;">vs prev: ${trend(s.cancelled, p.cancelled)}</div>
+            </div>
+            <div class="stat-card" style="border-color:#dc262622">
+                <div class="stat-val" style="color:#dc2626">${s.no_show||0}</div>
+                <div class="stat-label">No Shows</div>
+                <div style="font-size:9px; margin-top:4px;">vs prev: ${trend(s.no_show, p.no_show)}</div>
+            </div>
+        </div>
+        <div class="section-title">Appointment Outcome Breakdown</div>
+        <table><thead><tr><th>Status</th><th>Count</th><th>Percentage</th><th>Distribution</th></tr></thead><tbody>
+            ${[['Completed', s.completed||0,'#16a34a'],['Booked/Pending',s.booked||0,'#7c3aed'],['Cancelled',s.cancelled||0,'#d97706'],['No Show',s.no_show||0,'#dc2626']].map(([label,val,color])=>{
+                const pct = s.total>0?Math.round((val/s.total)*100):0;
+                return `<tr><td><strong>${label}</strong></td><td>${val}</td><td style="color:${color};font-weight:700">${pct}%</td><td><div class="progress-row"><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div></div></td></tr>`;
             }).join('')}
-            </tbody></table>
-            ${d.byDoctor?.length ? `
+        </tbody></table>`;
+
+    if (d.byDoctor?.length) {
+        statsHtml += `
             <div class="section-title">Appointments by Doctor</div>
             <table><thead><tr><th>Doctor</th><th>Total</th><th>Completed</th><th>Cancelled</th><th>Completion Rate</th></tr></thead><tbody>
-            ${d.byDoctor.map(doc=>{
+            ${d.byDoctor.map(doc => {
                 const rate = doc.total>0 ? ((doc.completed/doc.total)*100).toFixed(1)+'%' : '—';
                 return `<tr><td><strong>${doc.doctor_name||'—'}</strong></td><td>${doc.total}</td><td class="green">${doc.completed||0}</td><td class="red">${doc.cancelled||0}</td><td><strong>${rate}</strong></td></tr>`;
             }).join('')}
-            </tbody></table>` : ''}`;
+            </tbody></table>`;
     }
+
+    return statsHtml;
+}
 
     function buildDoctorWorkloadHTML(d) {
         const rows = d.workload || d.doctors || [];
@@ -1238,37 +1235,10 @@ function ReportsSection() {
             </tbody></table>`;
     }
 
-    function buildStaffActivityHTML(d) {
-        const rows = d.staff || d.activity || [];
-        return `
-            <div class="section-title">Staff Activity Summary</div>
-            <table><thead><tr><th>Staff Member</th><th>Role</th><th>Actions Performed</th><th>Last Active</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>`<tr><td><strong>${r.name||r.staff_name||'—'}</strong></td><td>${r.role||'—'}</td><td>${r.action_count||r.actions||0}</td><td>${fmtDTime(r.last_active)}</td></tr>`).join('') : noData()}
-            </tbody></table>`;
-    }
 
-    function buildSystemUsageHTML(d) {
-        const rows = d.usage || d.logins || [];
-        return `
-            <div class="stat-grid">
-                ${statCard(d.total_logins||rows.length,'Total Logins','#2563eb')}
-                ${statCard(d.unique_users||0,'Unique Users','#16a34a')}
-                ${statCard(d.peak_hour||'—','Peak Hour','#7c3aed')}
-            </div>
-            <div class="section-title">System Login & Usage Activity</div>
-            <table><thead><tr><th>Date</th><th>User</th><th>Role</th><th>Action</th><th>IP / Device</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>`<tr><td>${fmtDTime(r.login_time||r.timestamp)}</td><td>${r.username||r.user||'—'}</td><td>${r.role||'—'}</td><td>${r.action||'Login'}</td><td class="adm-mono" style="font-size:10px">${r.ip||'—'}</td></tr>`).join('') : noData()}
-            </tbody></table>`;
-    }
 
-    function buildTreatmentsPerDoctorHTML(d) {
-        const rows = d.treatments || d.doctors || [];
-        return `
-            <div class="section-title">Treatments Per Doctor</div>
-            <table><thead><tr><th>Doctor</th><th>Specialization</th><th>Total Treatments</th><th>Prescriptions Issued</th><th>Lab Orders</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>`<tr><td><strong>${r.doctor_name||r.name||'—'}</strong></td><td>${r.specialization||'General'}</td><td><strong>${r.total_treatments||r.treatments||0}</strong></td><td>${r.prescriptions||0}</td><td>${r.lab_orders||0}</td></tr>`).join('') : noData()}
-            </tbody></table>`;
-    }
+  
+    
 
     function buildPrescriptionStatsHTML(d) {
         const rows = d.medications || d.prescriptions || [];
@@ -1324,94 +1294,6 @@ function ReportsSection() {
                 const pct = maxVal>0?Math.round((r.count/maxVal)*100):0;
                 const growthColor = growth!=='—' ? (parseFloat(growth)>=0?'#16a34a':'#dc2626') : '#94a3b8';
                 return `<tr><td>${r.period||fmtDate(r.date)||'—'}</td><td><strong>${r.count||0}</strong></td><td style="color:${growthColor};font-weight:700">${growth!=='—'?(parseFloat(growth)>=0?'▲':'▼')+Math.abs(parseFloat(growth))+'%':'—'}</td></tr>`;
-            }).join('') : noData()}
-            </tbody></table>`;
-    }
-
-    function buildFeedbackReportHTML(d) {
-        const rows = d.feedback || [];
-        const byStatus = { new:0, reviewed:0, resolved:0, closed:0 };
-        rows.forEach(r => { byStatus[r.status] = (byStatus[r.status]||0) + 1; });
-        return `
-            <div class="stat-grid">
-                ${statCard(rows.length,'Total Feedback','#2563eb')}
-                ${statCard(byStatus.new,'New','#d97706')}
-                ${statCard(byStatus.reviewed,'Reviewed','#2563eb')}
-                ${statCard(byStatus.resolved,'Resolved','#16a34a')}
-            </div>
-            <div class="section-title">Feedback & Complaint Records</div>
-            <table><thead><tr><th>Date</th><th>Patient / User</th><th>Comment</th><th>Status</th><th>Admin Note</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>`<tr><td style="white-space:nowrap">${fmtDate(r.date_submitted)}</td><td><strong>${r.patient_name||r.user_name||'—'}</strong></td><td style="max-width:200px;font-size:11px">${(r.comment||'').slice(0,100)}${r.comment?.length>100?'…':''}</td><td>${r.status||'—'}</td><td style="font-size:11px;color:#64748b">${r.admin_note||'—'}</td></tr>`).join('') : noData()}
-            </tbody></table>`;
-    }
-
-    function buildCapacityUtilizationHTML(d) {
-        const rows = d.slots || d.utilization || [];
-        const avgUtil = rows.length ? (rows.reduce((s,r)=>s+(r.utilization_pct||0),0)/rows.length).toFixed(1) : 0;
-        return `
-            <div class="stat-grid">
-                ${statCard(avgUtil+'%','Avg Utilization','#2563eb')}
-                ${statCard(rows.length,'Total Slots Analyzed','#7c3aed')}
-                ${statCard(d.peak_slot||'—','Peak Slot','#d97706')}
-            </div>
-            <div class="section-title">OPD Slot Utilization</div>
-            <table><thead><tr><th>Date / Slot</th><th>Capacity</th><th>Booked</th><th>Utilization</th><th>Status</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>{
-                const pct = r.utilization_pct||0;
-                const status = pct>=90?'<span style="color:#dc2626;font-weight:700">Full</span>':pct>=60?'<span style="color:#d97706;font-weight:700">High</span>':'<span style="color:#16a34a;font-weight:700">Normal</span>';
-                return `<tr><td>${r.slot||fmtDate(r.date)||'—'}</td><td>${r.capacity||'—'}</td><td>${r.booked||0}</td><td><div class="progress-row"><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${pct>=90?'#dc2626':pct>=60?'#d97706':'#16a34a'}"></div></div><span style="font-size:10px">${pct}%</span></div></td><td>${status}</td></tr>`;
-            }).join('') : noData()}
-            </tbody></table>`;
-    }
-
-    function buildLoginActivityHTML(d) {
-        const rows = d.logins || d.logs || [];
-        return `
-            <div class="stat-grid">
-                ${statCard(rows.length,'Total Login Events','#2563eb')}
-                ${statCard(d.unique_users||new Set(rows.map(r=>r.username)).size,'Unique Users','#16a34a')}
-                ${statCard(d.failed_attempts||rows.filter(r=>/fail|error/i.test(r.action||'')).length,'Failed Attempts','#dc2626')}
-            </div>
-            <div class="section-title">Login Activity Log</div>
-            <table><thead><tr><th>Timestamp</th><th>Username</th><th>Role</th><th>Action</th><th>Result</th><th>IP Address</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>{
-                const ok = !/fail|error/i.test(r.action||r.result||'');
-                return `<tr><td style="white-space:nowrap;font-size:11px">${fmtDTime(r.timestamp||r.changed_at)}</td><td><strong>${r.username||r.changed_by||'—'}</strong></td><td>${r.role||'—'}</td><td>${r.action||'Login'}</td><td style="color:${ok?'#16a34a':'#dc2626'};font-weight:700">${ok?'Success':'Failed'}</td><td class="adm-mono" style="font-size:10px">${r.ip||'—'}</td></tr>`;
-            }).join('') : noData()}
-            </tbody></table>`;
-    }
-
-    function buildPasswordResetHTML(d) {
-        const rows = d.resets || d.events || d.logs || [];
-        return `
-            <div class="stat-grid">
-                ${statCard(rows.length,'Total Events','#d97706')}
-                ${statCard(d.password_resets||rows.filter(r=>/password|reset/i.test(r.action||'')).length,'Password Resets','#2563eb')}
-                ${statCard(d.otp_events||rows.filter(r=>/otp/i.test(r.action||'')).length,'OTP Requests','#7c3aed')}
-            </div>
-            <div class="section-title">Password Reset & OTP Events</div>
-            <table><thead><tr><th>Timestamp</th><th>User</th><th>Event Type</th><th>Status</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>`<tr><td style="white-space:nowrap;font-size:11px">${fmtDTime(r.timestamp||r.changed_at)}</td><td><strong>${r.username||r.changed_by||'—'}</strong></td><td>${r.action||r.event_type||'—'}</td><td>${r.status||'—'}</td></tr>`).join('') : noData()}
-            </tbody></table>`;
-    }
-
-    function buildDataModLogsHTML(d) {
-        const rows = d.logs || [];
-        const inserts = rows.filter(r=>/insert|add|creat/i.test(r.action||'')).length;
-        const updates = rows.filter(r=>/update|edit|patch/i.test(r.action||'')).length;
-        const deletes = rows.filter(r=>/delete|remov|deactiv/i.test(r.action||'')).length;
-        return `
-            <div class="stat-grid">
-                ${statCard(rows.length,'Total Modifications','#2563eb')}
-                ${statCard(inserts,'Insertions','#16a34a')}
-                ${statCard(updates,'Updates','#d97706')}
-                ${statCard(deletes,'Deletions','#dc2626')}
-            </div>
-            <div class="section-title">Data Modification Log</div>
-            <table><thead><tr><th>Timestamp</th><th>Table</th><th>Action</th><th>Record ID</th><th>Modified By</th></tr></thead><tbody>
-            ${rows.length ? rows.map(r=>{
-                const aColor = /insert|add|creat/i.test(r.action||'')?'#16a34a':/update|edit/i.test(r.action||'')?'#d97706':/delete|remov/i.test(r.action||'')?'#dc2626':'#2563eb';
-                return `<tr><td style="white-space:nowrap;font-size:11px">${fmtDTime(r.changed_at)}</td><td><code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:10px">${r.table_name||'—'}</code></td><td style="color:${aColor};font-weight:700;text-transform:capitalize">${r.action||'—'}</td><td style="font-size:11px">${r.record_id||'—'}</td><td>${r.changed_by||'system'}</td></tr>`;
             }).join('') : noData()}
             </tbody></table>`;
     }
@@ -1561,6 +1443,165 @@ function ReportsSection() {
     );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  DATA EXPORT (Excel/CSV)
+// ══════════════════════════════════════════════════════════════════════════════
+function DataExportSection() {
+    const [table, setTable] = useState('appointments');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState([]);
+    const [preview, setPreview] = useState([]);
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    const columnOptions = {
+        appointments: ['appointment_id', 'patient_id', 'doctor_id', 'appointment_day', 'start_time', 'end_time', 'queue_no', 'visit_type', 'status', 'is_present', 'created_at', 'completed_at'],
+        patients: ['patient_id', 'full_name', 'nic', 'dob', 'gender', 'phone', 'email', 'address', 'blood_group', 'allergies', 'chronic_conditions', 'emergency_contact', 'civil_status', 'barcode', 'is_active', 'created_at'],
+        staff: ['staff_id', 'first_name', 'surname', 'email', 'phone', 'nic', 'role_id', 'is_active', 'created_at'],
+        prescriptions: ['prescription_id', 'patient_id', 'prescribed_by', 'prescribed_date', 'medication_id', 'dosage', 'duration', 'fulfilled_at', 'pharmacist_id'],
+        lab_test: ['test_id', 'patient_id', 'requested_by', 'test_date', 'test_catalog_id', 'status', 'result', 'sample_collected_at', 'completed_at'],
+        feedback: ['feedback_id', 'patient_id', 'user_id', 'comment', 'rating', 'date_submitted', 'status', 'admin_note']
+    };
+
+    const fetchPreview = useCallback(async () => {
+        setPreviewLoading(true);
+        try {
+            let url = `${API}/admin/export-data?table=${table}`;
+            if (dateFrom && dateTo) url += `&from=${dateFrom}&to=${dateTo}`;
+            const res = await fetch(url);
+            const result = await res.json();
+            if (result.success) setPreview(result.data.slice(0, 10));
+        } catch (err) { console.error('Preview error:', err); }
+        finally { setPreviewLoading(false); }
+    }, [table, dateFrom, dateTo]);
+
+    useEffect(() => { fetchPreview(); }, [fetchPreview]);
+
+    const exportToExcel = async () => {
+        setLoading(true);
+        try {
+            let url = `${API}/admin/export-data?table=${table}`;
+            if (dateFrom && dateTo) url += `&from=${dateFrom}&to=${dateTo}`;
+            if (selectedColumns.length) url += `&columns=${selectedColumns.join(',')}`;
+            const res = await fetch(url);
+            const result = await res.json();
+            if (!result.success) throw new Error(result.message);
+            const ws = XLSX.utils.json_to_sheet(result.data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, table);
+            XLSX.writeFile(wb, `${table}_${dateFrom || 'all'}_${dateTo || 'all'}.xlsx`);
+        } catch (err) { alert('Export failed: ' + err.message); }
+        finally { setLoading(false); }
+    };
+
+    const exportToCSV = async () => {
+        setLoading(true);
+        try {
+            let url = `${API}/admin/export-data?table=${table}`;
+            if (dateFrom && dateTo) url += `&from=${dateFrom}&to=${dateTo}`;
+            if (selectedColumns.length) url += `&columns=${selectedColumns.join(',')}`;
+            const res = await fetch(url);
+            const result = await res.json();
+            if (!result.success) throw new Error(result.message);
+            const headers = Object.keys(result.data[0] || {});
+            const csvRows = [headers.join(',')];
+            for (const row of result.data) {
+                const values = headers.map(header => `"${String(row[header] ?? '').replace(/"/g, '""')}"`);
+                csvRows.push(values.join(','));
+            }
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const urlBlob = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = urlBlob;
+            a.download = `${table}_${dateFrom || 'all'}_${dateTo || 'all'}.csv`;
+            a.click();
+            URL.revokeObjectURL(urlBlob);
+        } catch (err) { alert('Export failed: ' + err.message); }
+        finally { setLoading(false); }
+    };
+
+    const toggleColumn = (col) => {
+        setSelectedColumns(prev => prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]);
+    };
+    const clearColumns = () => setSelectedColumns([]);
+
+    return (
+        <div className="adm-section">
+            <div className="adm-section-head">
+                <div><h2>Data Export</h2><p>Download raw data as Excel or CSV – choose table, date range, and columns</p></div>
+            </div>
+            <div className="adm-card">
+                <div className="adm-form-row">
+                    <div className="adm-form-group">
+                        <label>Table</label>
+                        <select className="adm-input" value={table} onChange={e => setTable(e.target.value)}>
+                            <option value="appointments">Appointments</option>
+                            <option value="patients">Patients</option>
+                            <option value="staff">Staff</option>
+                            <option value="prescriptions">Prescriptions</option>
+                            <option value="lab_test">Lab Tests</option>
+                            <option value="feedback">Feedback</option>
+                        </select>
+                    </div>
+                    <div className="adm-form-group">
+                        <label>From Date (optional)</label>
+                        <input className="adm-input" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                    </div>
+                    <div className="adm-form-group">
+                        <label>To Date (optional)</label>
+                        <input className="adm-input" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                    </div>
+                </div>
+
+                <div className="adm-export-columns">
+                    <div className="adm-export-columns-title">
+                        <Check size={12} /> Select Columns (leave empty to export all)
+                        {selectedColumns.length > 0 && (
+                            <button className="adm-btn-ghost adm-btn-xs" onClick={clearColumns} style={{marginLeft:'auto'}}>Clear All</button>
+                        )}
+                    </div>
+                    <div className="adm-export-checkbox-group">
+                        {columnOptions[table]?.map(col => (
+                            <label key={col} className="adm-export-checkbox">
+                                <input type="checkbox" checked={selectedColumns.includes(col)} onChange={() => toggleColumn(col)} />
+                                <span>{col}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="adm-export-actions">
+                    <button className="adm-btn-primary" onClick={exportToExcel} disabled={loading}>
+                        {loading ? <><div className="adm-btn-spinner"/> Exporting…</> : <> <Download size={14}/> Download Excel</>}
+                    </button>
+                    <button className="adm-btn-ghost" onClick={exportToCSV} disabled={loading}>
+                        {loading ? <><div className="adm-btn-spinner"/> Exporting…</> : <> <FileText size={14}/> Download CSV</>}
+                    </button>
+                    <button className="adm-btn-ghost" onClick={fetchPreview} disabled={previewLoading}>
+                        <RefreshCw size={14} className={previewLoading ? 'spin' : ''}/> Refresh Preview
+                    </button>
+                </div>
+
+                <div className="adm-export-preview">
+                    <div className="adm-card-head"><h3><Eye size={13}/> Preview (first 10 rows)</h3></div>
+                    {previewLoading ? <div className="adm-loading"><div className="adm-spinner"/></div>
+                    : preview.length === 0 ? <div className="adm-empty">No data for selected filters.</div>
+                    : <table className="adm-table">
+                        <thead><tr>{Object.keys(preview[0] || {}).map(key => <th key={key}>{key}</th>)}</tr></thead>
+                        <tbody>
+                            {preview.map((row, i) => (
+                                <tr key={i}>
+                                    {Object.values(row).map((val, j) => <td key={j} className="adm-dimmed">{val !== undefined && val !== null ? String(val).slice(0, 50) : '—'}</td>)}
+                                </tr>
+                            ))}
+                        </tbody>
+                      </table>}
+                </div>
+            </div>
+        </div>
+    );
+}
 // ══════════════════════════════════════════════════════════════════════════════
 //  SYSTEM LOGS
 // ══════════════════════════════════════════════════════════════════════════════
