@@ -28,7 +28,7 @@ function App() {
     });
 
     useEffect(() => {
-        // This will help you see if 'user' disappears when you click a tab
+        // This will help to see if 'user' disappears when you click a tab
         console.log("Current Auth State:", user);
     }, [user]);
     return (

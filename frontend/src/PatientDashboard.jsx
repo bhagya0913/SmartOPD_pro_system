@@ -12,8 +12,6 @@ import {
 } from 'lucide-react';
 
 const API = 'http://127.0.0.1:5001/api';
-
-// ─── UTILS ────────────────────────────────────────────────────────────────────
 const fmtDate = (d) => {
     if (!d) return '—';
     try { return new Date(d).toLocaleDateString('en-GB'); } catch { return '—'; }
@@ -55,7 +53,7 @@ const getPid = (user) => user?.patient_id || user?.patientId || user?.id;
 // Status sort weight — pending/booked first, then completed, then cancelled
 const statusWeight = (s) => ({ booked: 0, active: 0, pending: 0, completed: 1, cancelled: 2, no_show: 3 }[s] ?? 1);
 
-// ─── BARCODE SVG BUILDER ──────────────────────────────────────────────────────
+// BARCODE SVG BUILDER ──────────────────────────────────────────────────────
 function buildBarSvg(barcode, height = 32) {
     const str = (barcode || 'X') + 'SMARTOPD';
     let svgBars = '', x = 0;
@@ -77,7 +75,7 @@ function BarcodeStrips({ value = '', height = 32 }) {
     return <div style={{ display: 'flex', alignItems: 'center', gap: '1px', justifyContent: 'center', overflow: 'hidden' }}>{bars}</div>;
 }
 
-// ─── PDF PRINT HELPER ─────────────────────────────────────────────────────────
+// PDF PRINT HELPER ─────────────────────────────────────────────────────────
 function printPDF(htmlContent, filename) {
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return alert('Please allow popups to download.');
@@ -99,7 +97,7 @@ function printPDF(htmlContent, filename) {
     win.document.close();
 }
 
-// ─── SHARED PDF HEADER ────────────────────────────────────────────────────────
+// SHARED PDF HEADER ────────────────────────────────────────────────────────
 const pdfHeader = (title, subtitle = '') => `
 <div style="background:#0D47A1;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
     <div style="display:flex;align-items:center;gap:12px;">
@@ -116,7 +114,7 @@ const pdfHeader = (title, subtitle = '') => `
 </div>
 <div style="height:3px;background:linear-gradient(90deg,#1565C0,#42A5F5);"></div>`;
 
-// ─── DOWNLOAD ID CARD — redesigned as real hospital card ─────────────────────
+//  DOWNLOAD ID CARD — redesigned as real hospital card ─────────────────────
 function downloadIDCard(user) {
     const barcode    = user?.barcode       || 'PENDING';
     const name       = (user?.full_name    || 'Patient').toUpperCase();
@@ -193,7 +191,7 @@ function downloadIDCard(user) {
     printPDF(html, `PatientID_${barcode}`);
 }
 
-// ─── DOWNLOAD OPD SLIP — clean hospital slip, start time only ─────────────────
+// DOWNLOAD OPD SLIP — clean hospital slip, start time only ─────────────────
 function downloadOPDSlip(appt, user) {
     if (!appt) return;
     const barcode  = user?.barcode    || '';
@@ -278,7 +276,7 @@ function downloadOPDSlip(appt, user) {
     printPDF(html, `OPDSlip_Token${token}_${rawDate}`);
 }
 
-// ─── DOWNLOAD PRESCRIPTION PDF ────────────────────────────────────────────────
+// DOWNLOAD PRESCRIPTION PDF ────────────────────────────────────────────────
 function downloadPrescriptionPDF(rx, user) {
     const name = user?.full_name || '—';
     const nic  = user?.nic       || '—';
@@ -305,7 +303,7 @@ function downloadPrescriptionPDF(rx, user) {
     printPDF(html, `RX_${String(rx.record_id).padStart(6, '0')}`);
 }
 
-// ─── DOWNLOAD LAB PDF ─────────────────────────────────────────────────────────
+// DOWNLOAD LAB PDF ─────────────────────────────────────────────────────────
 function downloadLabPDF(t, user) {
     const name = user?.full_name || '—';
     const pid  = getPid(user)    || '—';
@@ -328,7 +326,7 @@ function downloadLabPDF(t, user) {
     printPDF(html, `Lab_${t.test_id}`);
 }
 
-// ─── DOWNLOAD REFERRAL PDF ────────────────────────────────────────────────────
+// DOWNLOAD REFERRAL PDF ────────────────────────────────────────────────────
 function downloadReferralPDF(r, user) {
     const name = user?.full_name || '—';
     const pid  = getPid(user)    || '—';
@@ -352,7 +350,7 @@ function downloadReferralPDF(r, user) {
     printPDF(html, `Referral_${r.referral_id}`);
 }
 
-// ─── DOWNLOAD HISTORY PDF ─────────────────────────────────────────────────────
+// DOWNLOAD HISTORY PDF ─────────────────────────────────────────────────────
 function downloadHistoryPDF(type, data, user) {
     const name    = user?.full_name || '—';
     const nic     = user?.nic       || '—';
@@ -424,7 +422,7 @@ function downloadHistoryPDF(type, data, user) {
     printPDF(html, `${type}_history_${pid}`);
 }
 
-// ─── SHARED ATOMS ─────────────────────────────────────────────────────────────
+// SHARED THINGS ─────────────────────────────────────────────────────────────
 const Spinner = () => (
     <div className="page-content loading-state">
         <div className="spinner" />
@@ -438,7 +436,7 @@ const EmptyState = ({ icon: Icon, title, sub }) => (
     </div>
 );
 
-// ─── HOSPITAL ID CARD (on-screen) — light blue theme ─────────────────────────
+// HOSPITAL ID CARD (on-screen) — light blue theme ─────────────────────────
 function HospitalIDCard({ user }) {
     const barcode    = user?.barcode             || 'PENDING';
     const name       = user?.full_name           || 'Patient Name';
@@ -515,7 +513,7 @@ function HospitalIDCard({ user }) {
     );
 }
 
-// ─── OPD SLIP CARD (on-screen) ────────────────────────────────────────────────
+// OPD SLIP CARD (on-screen) ────────────────────────────────────────────────
 function OPDSlipCard({ appt, user }) {
     if (!appt) return null;
     const startTime  = fmtSlotStart(appt);
@@ -601,7 +599,7 @@ function OPDSlipCard({ appt, user }) {
     );
 }
 
-// ─── HOME ─────────────────────────────────────────────────────────────────────
+// HOME ─────────────────────────────────────────────────────────────────────
 function DashboardHome({ user, myAppointments }) {
     const today = new Date().toISOString().split('T')[0];
 
@@ -616,9 +614,8 @@ function DashboardHome({ user, myAppointments }) {
         .filter(a => ['booked', 'active'].includes(a.status))
         .sort((a, b) => new Date(a.appointment_day) - new Date(b.appointment_day))[0];
 
-    // Slip to display = today's first, else latest booked (requirement #3)
+    // Slip to display = today's first, else latest booked
     const slipAppt = activeAppt || latestBooked;
-
     const upcoming  = myAppointments.filter(a => a.status === 'booked').length;
     const completed = myAppointments.filter(a => a.status === 'completed').length;
 
@@ -672,7 +669,7 @@ function DashboardHome({ user, myAppointments }) {
     );
 }
 
-// ─── APPOINTMENTS ─────────────────────────────────────────────────────────────
+// APOINTMENTS ─────────────────────────────────────────────────────────────
 function Appointments({ user, myAppointments, setMyAppointments }) {
     const [selectedDate, setSelectedDate] = useState('');
     const [visitType,    setVisitType]    = useState('New');
@@ -712,8 +709,6 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
             .finally(() => setChecking(false));
     }, [selectedDate]);
 
-    
-
     const handleBook = async (e) => {
         e.preventDefault();
         if (!selectedDate) return;
@@ -728,7 +723,7 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
             const d = await r.json();
             if (d.success) {
                 setSelectedDate(''); setDayStatus(null);
-                // Optimistically add new appt so Home slip shows immediately
+                // Optimistically add new appt so Home slip shows imediately
                 const newAppt = {
                     appointment_id: d.appointmentId || Date.now(),
                     appointment_day: selectedDate,
@@ -959,7 +954,51 @@ function Appointments({ user, myAppointments, setMyAppointments }) {
     );
 }
 
-// ─── MEDICAL RECORDS ──────────────────────────────────────────────────────────
+// NOTIFICATIONS ────────────────────────────────────────────────────────────
+function Notifications({ user }) {
+    const [items,   setItems]   = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const pid = getPid(user); if (!pid) return;
+        fetch(`${API}/notifications/${pid}`)
+            .then(r => r.json()).then(d => { if (d.success) setItems(d.notifications); })
+            .finally(() => setLoading(false));
+    }, [user]);
+
+    if (loading) return <Spinner />;
+
+    return (
+        <div className="page-content">
+            <div className="page-header">
+                <div className="page-header-icon" style={{ background: 'linear-gradient(135deg,#d97706,#f59e0b)' }}><Bell size={20} color="white" /></div>
+                <div>
+                    <h2 className="page-title">Notifications</h2>
+                    {items.length > 0 && <p className="page-subtitle">{items.length} message{items.length !== 1 ? 's' : ''}</p>}
+                </div>
+            </div>
+            {items.length === 0
+                ? <div className="empty-state" style={{ paddingTop: '40px' }}><div className="empty-icon-wrap"><Bell size={32} strokeWidth={1.5} /></div><p>No notifications at the moment.</p></div>
+                : <div className="cards-list">{items.map(n => (
+                    <div key={n.notification_id} className="notif-card">
+                        <div className="notif-icon-col"><Bell size={16} /></div>
+                        <div className="notif-body">
+                            <div className="notif-top-row"><h4>{n.email_subject || 'Notification'}</h4><span className="card-meta">{fmtDate(n.sent_at)}</span></div>
+                            <p>{n.message}</p>
+                            <span className="notif-status-tag">{n.status}</span>
+                        </div>
+                    </div>
+                ))}</div>
+            }
+        </div>
+    );
+}
+
+//_______________________________________________________________________
+//UNUSED COMPONENTS
+//_______________________________________________________________________
+
+// MEDICAL RECORDS ──────────────────────────────────────────────────────────
 function MedicalRecords({ user }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1015,7 +1054,7 @@ function MedicalRecords({ user }) {
     );
 }
 
-// ─── PRESCRIPTIONS ────────────────────────────────────────────────────────────
+// PRESCRIPTIONS ────────────────────────────────────────────────────────────
 function Prescriptions({ user }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1086,7 +1125,7 @@ function Prescriptions({ user }) {
     );
 }
 
-// ─── DIAGNOSTIC TESTS ─────────────────────────────────────────────────────────
+// DIAGNOSTIC TESTS ─────────────────────────────────────────────────────────
 function LabResults({ user }) {
     const [tests, setTests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1179,7 +1218,7 @@ function LabResults({ user }) {
     );
 }
 
-// ─── REFERRALS ────────────────────────────────────────────────────────────────
+// REFERRALS ────────────────────────────────────────────────────────────────
 function Referrals({ user }) {
     const [referrals, setReferrals] = useState([]);
     const [loading,   setLoading]   = useState(true);
@@ -1252,45 +1291,7 @@ function Referrals({ user }) {
     );
 }
 
-// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
-function Notifications({ user }) {
-    const [items,   setItems]   = useState([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const pid = getPid(user); if (!pid) return;
-        fetch(`${API}/notifications/${pid}`)
-            .then(r => r.json()).then(d => { if (d.success) setItems(d.notifications); })
-            .finally(() => setLoading(false));
-    }, [user]);
-
-    if (loading) return <Spinner />;
-
-    return (
-        <div className="page-content">
-            <div className="page-header">
-                <div className="page-header-icon" style={{ background: 'linear-gradient(135deg,#d97706,#f59e0b)' }}><Bell size={20} color="white" /></div>
-                <div>
-                    <h2 className="page-title">Notifications</h2>
-                    {items.length > 0 && <p className="page-subtitle">{items.length} message{items.length !== 1 ? 's' : ''}</p>}
-                </div>
-            </div>
-            {items.length === 0
-                ? <div className="empty-state" style={{ paddingTop: '40px' }}><div className="empty-icon-wrap"><Bell size={32} strokeWidth={1.5} /></div><p>No notifications at the moment.</p></div>
-                : <div className="cards-list">{items.map(n => (
-                    <div key={n.notification_id} className="notif-card">
-                        <div className="notif-icon-col"><Bell size={16} /></div>
-                        <div className="notif-body">
-                            <div className="notif-top-row"><h4>{n.email_subject || 'Notification'}</h4><span className="card-meta">{fmtDate(n.sent_at)}</span></div>
-                            <p>{n.message}</p>
-                            <span className="notif-status-tag">{n.status}</span>
-                        </div>
-                    </div>
-                ))}</div>
-            }
-        </div>
-    );
-}
 
 // ─── FEEDBACK ─────────────────────────────────────────────────────────────────
 const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
@@ -1454,9 +1455,7 @@ function Feedback({ user }) {
     );
 }
 
-
-
-// ─── PROFILE ──────────────────────────────────────────────────────────────────
+// PROFILE ──────────────────────────────────────────────────────────────────
 function ProfileEdit({ user, setUser }) {
     const [editing, setEditing] = useState(false);
     const [saving,  setSaving]  = useState(false);
@@ -1473,7 +1472,7 @@ function ProfileEdit({ user, setUser }) {
             emergency_contact: user.emergency_contact || '',
             chronic_conditions: user.chronic_conditions || '', allergies: user.allergies || '',
             height_cm: user.height_cm || '',
-weight_kg: user.weight_kg || ''
+            weight_kg: user.weight_kg || ''
         });
     }, [user]);
 
@@ -1541,24 +1540,16 @@ weight_kg: user.weight_kg || ''
                             <div className="ps-field wide"><label>Address</label>{editing ? <textarea className="custom-input textarea" rows={2} value={form.address || ''} onChange={set('address')} /> : <div className="ps-value">{form.address || <span className="empty-val">None</span>}</div>}</div>
                             <div className="ps-field wide"><label>Chronic Conditions</label>{editing ? <textarea className="custom-input textarea" rows={2} value={form.chronic_conditions || ''} onChange={set('chronic_conditions')} /> : <div className="ps-value">{form.chronic_conditions || <span className="empty-val">None</span>}</div>}</div>
                             <div className="ps-field wide"><label>Known Allergies</label>{editing ? <textarea className="custom-input textarea" rows={2} value={form.allergies || ''} onChange={set('allergies')} /> : <div className={`ps-value ${form.allergies ? 'allergy' : ''}`}>{form.allergies || <span className="empty-val">No known allergies</span>}</div>}</div>
-                            <div className="ps-field">
-    <label>Height (cm)</label>
-    {editing ? (
-        <input type="number" step="0.1" className="custom-input"
-            value={form.height_cm || ''} onChange={set('height_cm')} />
-    ) : (
-        <div className="ps-value">{form.height_cm ? `${form.height_cm} cm` : '—'}</div>
-    )}
-</div>
-<div className="ps-field">
-    <label>Weight (kg)</label>
-    {editing ? (
-        <input type="number" step="0.1" className="custom-input"
-            value={form.weight_kg || ''} onChange={set('weight_kg')} />
-    ) : (
-        <div className="ps-value">{form.weight_kg ? `${form.weight_kg} kg` : '—'}</div>
-    )}
-</div>
+                            <div className="ps-field"> <label>Height (cm)</label> {editing ? (<input type="number" step="0.1" className="custom-input" value={form.height_cm || ''} onChange={set('height_cm')} />
+                            ) : (
+                                <div className="ps-value">{form.height_cm ? `${form.height_cm} cm` : '—'}</div>
+                            )}
+                        </div>
+                        <div className="ps-field"> <label>Weight (kg)</label> {editing ? ( <input type="number" step="0.1" className="custom-input" value={form.weight_kg || ''} onChange={set('weight_kg')} />
+                            ) : (
+                                <div className="ps-value">{form.weight_kg ? `${form.weight_kg} kg` : '—'}</div>
+                            )}
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -1568,7 +1559,7 @@ weight_kg: user.weight_kg || ''
     );
 }
 
-// ─── FAMILY SECTION ───────────────────────────────────────────────────────────
+// FAMILY SECTION ───────────────────────────────────────────────────────────
 function FamilySection({ user, setUser }) {
     const [members,  setMembers]  = useState([]);
     const [loading,  setLoading]  = useState(true);
@@ -1678,7 +1669,7 @@ function FamilySection({ user, setUser }) {
     );
 }
 
-// ─── MAIN SHELL ───────────────────────────────────────────────────────────────
+// MAIN SHELL ───────────────────────────────────────────────────────────────
 export default function PatientDashboard({ user, setUser }) {
     const navigate = useNavigate();
     const location = useLocation();

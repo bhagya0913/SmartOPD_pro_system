@@ -1,9 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    SMARTOPD — Admin Dashboard
-   Accent : Warm Brown  #92400e
-   Sidebar: Neutral slate with tint  #fdf8f0
-   Design : Same system as DoctorDashboard — neutral surfaces, accent as accent
-   Font   : Plus Jakarta Sans + JetBrains Mono
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -86,6 +82,8 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .adm-shell, .adm-shell * { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+@page { margin:20mm 18mm; size:A4; }
 
 /* ═══════════════════════════════════════════════════════════════
    SHELL

@@ -1,21 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    SMARTOPD — common.css
-   Base Hospital, Kiribathgoda | OPD Management System
-   Import this FIRST in every dashboard & page JSX.
-
-   Contains ONLY classes used in 2+ JSX files:
-   · input-block, input-label, input-wrapper, input-icon, reg-input
-   · modal-overlay, modal-box, modal-close-btn, otp-box, btn-verify-otp
-   · barcode-* classes, btn-go-login
-   · contact-method-toggle, toggle-*, password-strength, strength-*
-   · auth-page, auth-card, btn-reg-action, reg-footer, reg-link-btn
-   · page-header, page-title, page-subtitle, page-header-icon
-   · form-card, form-card-title, form-row-2, form-group, custom-input, input-label
-   · primary-btn, btn-spinner
-   · appt-badge, token-chip, cards-list, content-card, info-row-2, info-cell
-   · table-wrap, data-table, table-empty, mono-text
-   · section-divider, avg-badge, success-banner, info-alert, empty-state
-   · rx-pre, spinner, adm-toast
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');

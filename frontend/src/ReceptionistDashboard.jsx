@@ -23,7 +23,7 @@ const Empty   = ({ icon: Icon, text }) => (
     <div className="rec-empty"><Icon size={28} style={{opacity:.3}}/><p>{text}</p></div>
 );
 
-// ── MAIN SHELL ────────────────────────────────────────────────────────────────
+// MAIN SHELL ────────────────────────────────────────────────────────────────
 export default function ReceptionistDashboard({ user, setUser }) {
     const [activeTab, setActiveTab] = useState('home');
     const navigate = useNavigate();
@@ -104,11 +104,6 @@ export default function ReceptionistDashboard({ user, setUser }) {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  HOME / OVERVIEW
-//  FIX: Removed "New Registrations" card; replaced with "Completed" card.
-//       All cards now reflect real-time DB data from /api/receptionist/stats.
-// ══════════════════════════════════════════════════════════════════════════════
 function ReceptionHome({ user }) {
     const [stats,   setStats]   = useState({ totalToday:0, arrived:0, pending:0, completed:0 });
     const [queue,   setQueue]   = useState([]);
@@ -143,7 +138,6 @@ function ReceptionHome({ user }) {
         } catch { toast.error('Server error.'); }
     };
 
-    // CHANGE: replaced "New Registrations" with "Completed Today"
     const statCards = [
         { label: "Today's Appointments", val: stats.totalToday,  icon: Calendar,     color: 'blue'  },
         { label: 'Arrived / Present',    val: stats.arrived,     icon: CheckCircle2, color: 'green' },
@@ -237,9 +231,6 @@ function ReceptionHome({ user }) {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  PATIENT DETAIL PANEL
-// ══════════════════════════════════════════════════════════════════════════════
 function PatientDetailPanel({ entry, onUpdate }) {
     const [marking, setMarking] = useState(false);
     const { patient, appointments } = entry;
@@ -356,11 +347,6 @@ function PatientDetailPanel({ entry, onUpdate }) {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  VERIFY ARRIVAL
-//  ENHANCEMENT: Added webcam-based barcode scanning via BarcodeDetector API
-//               with graceful fallback to manual entry.
-// ══════════════════════════════════════════════════════════════════════════════
 function VerifyArrival() {
     const [mode,          setMode]          = useState('barcode');
     const [query,         setQuery]         = useState('');
@@ -412,7 +398,7 @@ function VerifyArrival() {
     };
 
     const detectBarcodes = async () => {
-        // BarcodeDetector is available in modern Chrome/Edge
+        // BarcodeDetector is available
         if (!('BarcodeDetector' in window)) {
             setCamError('Barcode detection not supported in this browser. Use manual entry.');
             stopCamera();
@@ -629,11 +615,6 @@ function VerifyArrival() {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  REGISTER PATIENT
-//  ENHANCEMENT: Expanded form with all hospital fields including medical info.
-//               Auto-generate barcode preview. Better section layout.
-// ══════════════════════════════════════════════════════════════════════════════
 function RegisterPatient({ user, onDone }) {
     const [saving,     setSaving]    = useState(false);
     const [done,       setDone]      = useState(null);
@@ -863,11 +844,6 @@ function RegisterPatient({ user, onDone }) {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  ALL APPOINTMENTS
-//  ENHANCEMENT: Date range filter, "View All" mode, search by name/NIC/ID,
-//               column sorting, pagination.
-// ══════════════════════════════════════════════════════════════════════════════
 function AllAppointments() {
     const today = new Date().toISOString().split('T')[0];
 
@@ -1100,9 +1076,6 @@ function AllAppointments() {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  MY PROFILE
-// ══════════════════════════════════════════════════════════════════════════════
 function ReceptionProfile({ user }) {
     const [editing, setEditing] = useState(false);
     const [saving,  setSaving]  = useState(false);
@@ -1234,9 +1207,6 @@ function ReceptionProfile({ user }) {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  NOTIFICATIONS
-// ══════════════════════════════════════════════════════════════════════════════
 function ReceptionNotifications({ user }) {
     const [notifs,  setNotifs]  = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1278,11 +1248,6 @@ function ReceptionNotifications({ user }) {
     );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  FEEDBACK
-//  ENHANCEMENT: Added star rating, category selector, character counter,
-//               richer history with admin response display.
-// ══════════════════════════════════════════════════════════════════════════════
 function ReceptionFeedback({ user }) {
     const [comment,   setComment]   = useState('');
     const [rating,    setRating]    = useState(0);

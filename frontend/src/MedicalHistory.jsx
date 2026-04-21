@@ -10,7 +10,6 @@ import {
 
 const API = 'http://127.0.0.1:5001/api';
 
-// ─── UTILS ────────────────────────────────────────────────────────────────────
 const fmtDate = (d) => {
     if (!d) return '—';
     try { return new Date(d).toLocaleDateString('en-GB'); } catch { return '—'; }
@@ -44,7 +43,7 @@ const getSortDate = (item) =>
     : item._type === 'referral'    ? item.referral_date
     : '1970-01-01';
 
-// ─── MINI SPINNER & EMPTY ─────────────────────────────────────────────────────
+// MINI SPINNER & EMPTY ─────────────────────────────────────────────────────
 const Spinner = () => (
     <div className="mh-center" style={{ minHeight: '200px' }}>
         <div className="mh-spinner" />
@@ -59,7 +58,7 @@ const Empty = ({ icon: Icon, title, sub }) => (
     </div>
 );
 
-// ─── SECTION BADGE ────────────────────────────────────────────────────────────
+// SECTION BADGE ────────────────────────────────────────────────────────────
 const TypePill = ({ type }) => {
     const cfg = {
         consultation: { label: 'Consultation',  bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', Icon: Stethoscope },
@@ -78,7 +77,7 @@ const TypePill = ({ type }) => {
     );
 };
 
-// ─── DATE BADGE (left column) ─────────────────────────────────────────────────
+// DATE BADGE (left column) ─────────────────────────────────────────────────
 const DateBadge = ({ dateStr }) => {
     if (!dateStr) return <div className="mh-date-badge mh-date-badge-empty">—</div>;
     const d = new Date(dateStr);
@@ -95,7 +94,7 @@ const DateBadge = ({ dateStr }) => {
     );
 };
 
-// ─── FIELD CELL (small label + content) ───────────────────────────────────────
+// FIELD CELL (small label + content) ───────────────────────────────────────
 const FieldCell = ({ label, children, wide, accent }) => (
     <div className={`mh-cell ${wide ? 'mh-cell-wide' : ''} ${accent ? 'mh-cell-accent' : ''}`}>
         <label>{label}</label>
@@ -103,7 +102,7 @@ const FieldCell = ({ label, children, wide, accent }) => (
     </div>
 );
 
-// ─── CONSULTATION CARD ────────────────────────────────────────────────────────
+// CONSULTATION CARD ────────────────────────────────────────────────────────
 function ConsultationCard({ rec, expanded, onToggle }) {
     const vitals = rec.weight_kg || rec.height_cm;
 
@@ -213,7 +212,7 @@ function ConsultationCard({ rec, expanded, onToggle }) {
     );
 }
 
-// ─── PRESCRIPTION CARD ────────────────────────────────────────────────────────
+// PRESCRIPTION CARD ────────────────────────────────────────────────────────
 function PrescriptionCard({ rec, expanded, onToggle, user, onPrint }) {
     const done = !!rec.fulfilled_at;
     return (
@@ -290,7 +289,7 @@ function PrescriptionCard({ rec, expanded, onToggle, user, onPrint }) {
     );
 }
 
-// ─── LAB / DIAGNOSTIC CARD ────────────────────────────────────────────────────
+// DIAGNOSTIC CARD ────────────────────────────────────────────────────
 function LabCard({ rec, expanded, onToggle, onPrint }) {
     const typeColor = {
         Lab:     { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' },
@@ -407,7 +406,7 @@ function LabCard({ rec, expanded, onToggle, onPrint }) {
     );
 }
 
-// ─── REFERRAL CARD ────────────────────────────────────────────────────────────
+// REFERRAL CARD ────────────────────────────────────────────────────────────
 function ReferralCard({ rec, expanded, onToggle, onPrint }) {
     const urgencyStyle = {
         Routine:   { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
@@ -495,7 +494,7 @@ function ReferralCard({ rec, expanded, onToggle, onPrint }) {
     );
 }
 
-// ─── PRINT HELPERS (pass-through to parent printPDF) ─────────────────────────
+// PRINT HELPERS (pass-through to parent printPDF) ─────────────────────────
 function printPDF(html, filename) {
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return alert('Please allow popups to print.');
@@ -593,7 +592,7 @@ function handlePrintReferral(r, user) {
     printPDF(html, `Referral_${r.referral_id}`);
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+// MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function MedicalHistory({ user }) {
     const [records,       setRecords]       = useState([]);
     const [prescriptions, setPrescriptions] = useState([]);
@@ -601,7 +600,7 @@ export default function MedicalHistory({ user }) {
     const [referrals,     setReferrals]     = useState([]);
     const [loading,       setLoading]       = useState(true);
     const [filter,        setFilter]        = useState('all');   // all | consultation | prescription | lab | referral
-    const [expanded,      setExpanded]      = useState({});      // key: `${type}-${id}`
+    const [expanded,      setExpanded]      = useState({});      
     const [expandAll,     setExpandAll]     = useState(false);
 
     const pid = getPid(user);
