@@ -1,3 +1,10 @@
+/*
+This simplified single-file structure was adopted for ease of development,
+testing, and academic purposes. In future enhancements, the application
+can be refactored into a modular and scalable architecture by separating
+concerns into routes, controllers, and models following best practices.
+*/
+
 require('dotenv').config();
 const express = require('express');
 const mysql   = require('mysql2');
