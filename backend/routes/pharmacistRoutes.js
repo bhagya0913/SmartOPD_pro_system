@@ -2,15 +2,7 @@ const express = require('express');
 const { db } = require('../config/db');
 const router = express.Router();
 
-// ============================================================
-// PHARMACIST ROUTES
-// Purpose: Endpoints used by the pharmacist dashboard for
-//          prescription management and dispensing.
-// ============================================================
 
-// POST /api/pharmacist/save-note
-// Purpose: Allows a pharmacist to add or update a note on a
-//          specific treatment/prescription record.
 app.post('/api/pharmacist/save-note', async (req, res) => {
     const { record_id, note } = req.body;
     if (!record_id)
@@ -26,13 +18,7 @@ app.post('/api/pharmacist/save-note', async (req, res) => {
     }
 });
 
-// GET /api/pharmacist/reports/generate
-// Purpose:  Generates various pharmacy management reports based on
-//           the report type and date range provided as query parameters.
-// Query params:
-//   type  — one of: daily_received, dispensed, pending, most_prescribed, freq_by_doctor
-//   from  — start date (YYYY-MM-DD)
-//   to    — end date (YYYY-MM-DD)
+
 app.get('/api/pharmacist/reports/generate', async (req, res) => {
     const { type, from, to } = req.query;
     if (!type || !from || !to)
@@ -162,9 +148,7 @@ app.get('/api/pharmacist/reports/generate', async (req, res) => {
     }
 });
 
-// GET /api/staff/feedback/:staff_id
-// Purpose:  Retrieves feedback submitted by a specific staff member.
-//           Used on the staff dashboard to show their own feedback history.
+
 app.get('/api/staff/feedback/:staff_id', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -187,10 +171,7 @@ app.get('/api/staff/feedback/:staff_id', async (req, res) => {
     }
 });
 
-// GET /api/pharmacist/stats
-// Purpose:  Returns summary counts for the pharmacist dashboard:
-//           pending (not yet dispensed), fulfilled today, and
-//           total prescriptions created today.
+
 app.get('/api/pharmacist/stats', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
@@ -237,10 +218,7 @@ app.get('/api/pharmacist/stats', async (req, res) => {
     }
 });
 
-// GET /api/pharmacist/pending-queue
-// Purpose:  Returns all prescriptions that have been issued but
-//           not yet dispensed. Used to show the pharmacist their
-//           work queue sorted by oldest first.
+
 app.get('/api/pharmacist/pending-queue', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -271,11 +249,7 @@ app.get('/api/pharmacist/pending-queue', async (req, res) => {
     }
 });
 
-// GET /api/pharmacist/all-prescriptions
-// Purpose:  Returns all prescriptions with optional status filter.
-//           Used by the pharmacist to browse all, pending, or fulfilled prescriptions.
-// Query params:
-//   status — optional: 'pending' | 'fulfilled' (returns all if omitted)
+
 app.get('/api/pharmacist/all-prescriptions', async (req, res) => {
     const { status } = req.query;
     try {
@@ -315,12 +289,7 @@ app.get('/api/pharmacist/all-prescriptions', async (req, res) => {
     }
 });
 
-// GET /api/pharmacist/prescriptions-by-patient
-// Purpose:  Looks up a patient by barcode or NIC, then returns
-//           all their prescription history. Used when a patient
-//           walks to the pharmacy counter to collect medication.
-// Query params:
-//   term — barcode string OR NIC number
+
 app.get('/api/pharmacist/prescriptions-by-patient', async (req, res) => {
     const { term } = req.query;
     if (!term)
@@ -366,14 +335,7 @@ app.get('/api/pharmacist/prescriptions-by-patient', async (req, res) => {
     }
 });
 
-// POST /api/pharmacist/fulfill-record
-// Purpose:  Marks a prescription as dispensed by inserting a record
-//           into the prescription_fulfillment table.
-//           Prevents double-dispensing by checking for an existing record first.
-// Body params:
-//   record_id      — treatment record ID being fulfilled
-//   pharmacist_id  — staff ID of the dispensing pharmacist
-//   notes          — optional pharmacist notes
+
 app.post('/api/pharmacist/fulfill-record', async (req, res) => {
     const { record_id, pharmacist_id, notes } = req.body;
     if (!record_id || !pharmacist_id) {
@@ -409,5 +371,6 @@ app.post('/api/pharmacist/fulfill-record', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
 
 module.exports = router;
