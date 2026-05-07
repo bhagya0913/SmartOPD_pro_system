@@ -5,7 +5,7 @@ const transporter = require('../config/email');
 const { generateBarcode } = require('../utils/helpers');
 const router = express.Router();
 
-app.get('/api/receptionist/stats', async (req, res) => {
+router.get('/api/receptionist/stats', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
         // Total bookings today (excluding cancelled)
@@ -44,7 +44,7 @@ app.get('/api/receptionist/stats', async (req, res) => {
 });
 
 
-app.get('/api/receptionist/queue', async (req, res) => {
+router.get('/api/receptionist/queue', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
         const [rows] = await db.query(`
@@ -67,7 +67,7 @@ app.get('/api/receptionist/queue', async (req, res) => {
 });
 
 
-app.get('/api/receptionist/verify-arrival', async (req, res) => {
+router.get('/api/receptionist/verify-arrival', async (req, res) => {
     const { term } = req.query;
     if (!term)
         return res.status(400).json({ success: false, message: 'Search term required.' });
@@ -114,7 +114,7 @@ app.get('/api/receptionist/verify-arrival', async (req, res) => {
 });
 
 
-app.post('/api/receptionist/mark-arrived', async (req, res) => {
+router.post('/api/receptionist/mark-arrived', async (req, res) => {
     const { appointment_id } = req.body;
     if (!appointment_id)
         return res.status(400).json({ success: false, message: 'appointment_id required.' });
@@ -138,7 +138,7 @@ app.post('/api/receptionist/mark-arrived', async (req, res) => {
 });
 
 
-app.post('/api/receptionist/register-patient', async (req, res) => {
+router.post('/api/receptionist/register-patient', async (req, res) => {
     const {
         full_name, nic, dob, gender, phone, email, address,
         blood_group, allergies, chronic_conditions,
@@ -275,7 +275,7 @@ app.post('/api/receptionist/register-patient', async (req, res) => {
 });
 
 
-app.get('/api/receptionist/appointments', async (req, res) => {
+router.get('/api/receptionist/appointments', async (req, res) => {
     const { date, from, to, status } = req.query;
 
     try {

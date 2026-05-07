@@ -3,7 +3,7 @@ const { db } = require('../config/db');
 const router = express.Router();
 
  
-app.get('/api/lab/stats', async (req, res) => {
+router.get('/api/lab/stats', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
         const [[{ pending }]]    = await db.query(
@@ -24,7 +24,7 @@ app.get('/api/lab/stats', async (req, res) => {
 });
 
  
-app.get('/api/lab/worklist', async (req, res) => {
+router.get('/api/lab/worklist', async (req, res) => {
     const { status = 'requested' } = req.query;
     try {
         let sql = `
@@ -68,7 +68,7 @@ app.get('/api/lab/worklist', async (req, res) => {
 });
 
  
-app.get('/api/lab/patient-tests', async (req, res) => {
+router.get('/api/lab/patient-tests', async (req, res) => {
     const { term } = req.query;
     if (!term)
         return res.status(400).json({ success: false, message: 'Search term required.' });
@@ -100,7 +100,7 @@ app.get('/api/lab/patient-tests', async (req, res) => {
 });
 
  
-app.post('/api/lab/update-status', async (req, res) => {
+router.post('/api/lab/update-status', async (req, res) => {
     const { test_id, status, technician_id } = req.body;
     if (!test_id || !status)
         return res.status(400).json({ success: false, message: 'test_id and status required.' });
@@ -132,7 +132,7 @@ app.post('/api/lab/update-status', async (req, res) => {
 });
 
  
-app.post('/api/lab/upload-result',
+router.post('/api/lab/upload-result',
     async (req, res) => {
         const { test_id, summary, remarks, uploaded_by } = req.body;
 

@@ -1,47 +1,10 @@
 const express = require('express');
 const { db } = require('../config/db');
-const { calcEstimatedTime, sendBookingEmail } = require('../utils/helpers');
+const { calcEstimatedTime, generateBarcode, sendBookingEmail } = require('../utils/helpers');
 const router = express.Router();
 
-
-function generateBarcode() {
-    const ts  = Date.now().toString(36).toUpperCase();           // Timestamp in base-36
-    const rnd = Math.random().toString(36).substring(2, 6).toUpperCase(); // 4 random chars
-    return `BHK-${ts}-${rnd}`;
-}
-
-
-async function calcEstimatedTime(tokenNo) {
-    try {
-        const [rows] = await db.query(
-            `SELECT setting_key, setting_value FROM system_settings
-             WHERE setting_key IN ('opd_start_hour','slot_duration_minutes')`
-        );
-        const cfg = {};
-        rows.forEach(r => { cfg[r.setting_key] = r.setting_value; });
-
-        const startHour   = parseInt(cfg.opd_start_hour)        || 8;   // Default 8 AM
-        const slotMinutes = parseInt(cfg.slot_duration_minutes) || 10;  // Default 10 min slots
-
-        // Convert token position to minutes from midnight
-        const startTotal = startHour * 60 + (tokenNo - 1) * slotMinutes;
-        const endTotal   = startTotal + slotMinutes;
-
-        // Format minutes-from-midnight to "HH:MM AM/PM"
-        const fmt = (mins) => {
-            const h = Math.floor(mins / 60), m = mins % 60;
-            const hr = h % 12 || 12, ampm = h < 12 ? 'AM' : 'PM';
-            return `${String(hr).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ampm}`;
-        };
-
-        return `${fmt(startTotal)} – ${fmt(endTotal)}`;
-    } catch {
-        return null;
-    }
-}
-
  
-app.get('/api/opd-slots', async (req, res) => {
+router.get('/api/opd-slots', async (req, res) => {
     const { date } = req.query;
     if (!date)
         return res.status(400).json({ success: false, message: 'date required' });
@@ -90,7 +53,7 @@ app.get('/api/opd-slots', async (req, res) => {
 });
 
  
-app.post('/api/book-appointment', async (req, res) => {
+router.post('/api/book-appointment', async (req, res) => {
     const { patientId, date, visitType = 'New' } = req.body;
     if (!patientId || !date)
         return res.status(400).json({ success: false, message: 'patientId and date are required.' });
@@ -175,60 +138,7 @@ app.post('/api/book-appointment', async (req, res) => {
 });
 
  
-async function sendBookingEmail(patientId, appointmentId, date, tokenNo, estimatedTime, visitType) {
-    try {
-        // Load patient contact info and barcode
-        const [pRows] = await db.query(
-            `SELECT full_name, email, barcode, nic, patient_id FROM patient WHERE patient_id=? LIMIT 1`,
-            [patientId]
-        );
-        if (!pRows.length || !pRows[0].email) return; // Skip if no email on file
-
-        const patient = pRows[0];
-
-        // Generate barcode image for the email
-        let barcodeImage = '';
-        try {
-            barcodeImage = await generateBarcodeDataURL(patient.barcode);
-        } catch (bErr) {
-            console.warn('Barcode image generation failed:', bErr.message);
-        }
-
-        // Build the appointment object expected by buildOpdSlipEmail
-        const appointment = {
-            queue_no:        tokenNo,
-            appointment_day: date,
-            time_slot:       estimatedTime,
-            visit_type:      visitType,
-        };
-
-        const emailHtml = buildOpdSlipEmail(appointment, patient, barcodeImage);
-
-        await transporter.sendMail({
-            from:    'bhagya0913@gmail.com',
-            to:      patient.email,
-            subject: `SmartOPD OPD Slip — Token #${tokenNo} · ${date}`,
-            html:    emailHtml
-        });
-
-        // Log the notification to the DB (silently ignore if table doesn't exist)
-        await db.query(
-            `INSERT INTO notifications (patient_id, recipient_type, email_subject, message, status, sent_at)
-             VALUES (?, 'patient', ?, ?, 'sent', NOW())`,
-            [
-                patientId,
-                `OPD Appointment Confirmed — Token #${tokenNo}`,
-                `Your appointment on ${date} is confirmed. Token: #${tokenNo}. Estimated time: ${estimatedTime || 'TBD'}.`
-            ]
-        ).catch(() => {});
-
-    } catch (err) {
-        console.error('Booking email error:', err);
-    }
-}
-
- 
-app.get('/api/my-appointments', async (req, res) => {
+router.get('/api/my-appointments', async (req, res) => {
     const { patientId } = req.query;
     if (!patientId)
         return res.status(400).json({ success: false, message: 'patientId required' });
@@ -255,7 +165,7 @@ app.get('/api/my-appointments', async (req, res) => {
 });
 
  
-app.delete('/api/cancel-appointment/:id', async (req, res) => {
+router.delete('/api/cancel-appointment/:id', async (req, res) => {
     try {
         const [result] = await db.query(
             `UPDATE appointments SET status='cancelled' WHERE appointment_id=? AND status='booked'`,
@@ -270,7 +180,7 @@ app.delete('/api/cancel-appointment/:id', async (req, res) => {
 });
 
  
-app.get('/api/medical-records/:patientId', async (req, res) => {
+router.get('/api/medical-records/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -293,7 +203,7 @@ app.get('/api/medical-records/:patientId', async (req, res) => {
 });
 
 
-app.get('/api/prescriptions/:patientId', async (req, res) => {
+router.get('/api/prescriptions/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -318,7 +228,7 @@ app.get('/api/prescriptions/:patientId', async (req, res) => {
 });
 
  
-app.get('/api/lab-results/:patientId', async (req, res) => {
+router.get('/api/lab-results/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -342,7 +252,7 @@ app.get('/api/lab-results/:patientId', async (req, res) => {
 });
 
  
-app.get('/api/test-file/:testId', async (req, res) => {
+router.get('/api/test-file/:testId', async (req, res) => {
     try {
         const [rows] = await db.query(
             `SELECT file_path FROM test_results WHERE test_id=? LIMIT 1`,
@@ -364,7 +274,7 @@ app.get('/api/test-file/:testId', async (req, res) => {
 });
 
  
-app.get('/api/referrals/:patientId', async (req, res) => {
+router.get('/api/referrals/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -385,7 +295,7 @@ app.get('/api/referrals/:patientId', async (req, res) => {
 });
 
  
-app.get('/api/notifications/:patientId', async (req, res) => {
+router.get('/api/notifications/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT notification_id, email_subject, message, status, sent_at
@@ -404,7 +314,7 @@ app.get('/api/notifications/:patientId', async (req, res) => {
 });
 
  
-app.post('/api/update-profile', async (req, res) => {
+router.post('/api/update-profile', async (req, res) => {
     const {
         patientId, full_name, nic, dob, gender, civil_status, blood_group,
         phone, address_line1, address, emergency_contact,
@@ -445,7 +355,7 @@ app.post('/api/update-profile', async (req, res) => {
 });
 
  
-app.get('/api/feedback/:patientId', async (req, res) => {
+router.get('/api/feedback/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT feedback_id, rating, comment, submitted_at, created_at
@@ -461,7 +371,7 @@ app.get('/api/feedback/:patientId', async (req, res) => {
 });
 
  
-app.post('/api/feedback', async (req, res) => {
+router.post('/api/feedback', async (req, res) => {
     const { patientId, rating, comment } = req.body;
 
     if (!patientId)
@@ -483,7 +393,7 @@ app.post('/api/feedback', async (req, res) => {
 });
 
  
-app.get('/api/family-members', async (req, res) => {
+router.get('/api/family-members', async (req, res) => {
     const { email } = req.query;
     if (!email)
         return res.status(400).json({ success: false, message: 'email required' });
@@ -531,7 +441,7 @@ app.get('/api/family-members', async (req, res) => {
 });
 
  
-app.post('/api/add-family-member', async (req, res) => {
+router.post('/api/add-family-member', async (req, res) => {
     const { email, full_name, dob, gender, relation, nic, phone } = req.body;
     if (!email || !full_name || !dob || !gender)
         return res.status(400).json({
@@ -601,7 +511,7 @@ app.post('/api/add-family-member', async (req, res) => {
 });
 
  
-app.delete('/api/remove-family-member', async (req, res) => {
+router.delete('/api/remove-family-member', async (req, res) => {
     const { email, memberPatientId } = req.body;
     if (!email || !memberPatientId)
         return res.status(400).json({ success: false, message: 'email and memberPatientId required.' });
