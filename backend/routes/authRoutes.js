@@ -7,15 +7,7 @@ const { buildRegistrationEmail, buildRegistrationEmailForExistingStaff } = requi
 
 const router = express.Router();
 
-// ============================================================
-// AUTH ROUTES — FORGOT / RESET PASSWORD
-// ============================================================
-
-// POST /api/forgot-password
-// Purpose:  Initiates password reset by generating a 6-digit OTP,
-//           storing it in the DB, and emailing it to the user.
-//           Returns success even if the email is sent — the OTP
-//           expires in 5 minutes.
+ 
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
 
@@ -64,10 +56,7 @@ app.post('/api/forgot-password', async (req, res) => {
     }
 });
 
-// POST /api/verify-token
-// Purpose:  Verifies that the OTP entered by the user matches the one
-//           stored in the DB for that email and has not expired.
-//           Used as the middle step in the password reset flow.
+ 
 app.post('/api/verify-token', async (req, res) => {
     const { email, token } = req.body;
 
@@ -90,13 +79,7 @@ app.post('/api/verify-token', async (req, res) => {
     }
 });
 
-// POST /api/reset-password
-// Purpose:  Final step of password reset. Verifies the OTP again,
-//           hashes the new password with bcrypt, updates the user
-//           account, and deletes the used OTP from the DB.
-// Note: This route is defined twice (duplicate) — only the last
-//       definition will be active in Express. This is a code smell
-//       that should be cleaned up.
+ 
 app.post('/api/reset-password', async (req, res) => {
     const { email, token, newPassword } = req.body;
 
@@ -133,9 +116,7 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// POST /api/reset-password (DUPLICATE — see note above)
-// This is a duplicate route definition. In Express, the last definition
-// wins, so this effectively replaces the one above. Functionally identical.
+ 
 app.post('/api/reset-password', async (req, res) => {
     const { email, token, newPassword } = req.body;
     if (!email || !token || !newPassword)
@@ -163,17 +144,7 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// ============================================================
-// REGISTRATION OTP ROUTES
-// Purpose: Send and verify OTP codes before allowing a new
-//          patient to complete self-registration. Prevents fake
-//          or unverified email/phone registrations.
-// ============================================================
-
-// POST /api/send-registration-otp
-// Purpose:  Sends a 6-digit OTP to the provided email address.
-//           Blocks if the email is already fully registered as a patient.
-//           Allows OTP for staff-only accounts (they can also register as patients).
+ 
 app.post('/api/send-registration-otp', async (req, res) => {
     const { email } = req.body;
 
@@ -246,10 +217,7 @@ app.post('/api/send-registration-otp', async (req, res) => {
     }
 });
 
-// POST /api/send-registration-sms-otp
-// Purpose:  Sends a 6-digit OTP via SMS (Twilio) to a Sri Lankan
-//           mobile number. Validates the phone format and blocks
-//           already-registered numbers.
+ 
 app.post('/api/send-registration-sms-otp', async (req, res) => {
     const { phone } = req.body;
 
@@ -297,9 +265,7 @@ app.post('/api/send-registration-sms-otp', async (req, res) => {
     }
 });
 
-// POST /api/verify-registration-otp
-// Purpose:  Verifies the email OTP submitted by the user during
-//           registration. Checks that the code matches and has not expired.
+
 app.post('/api/verify-registration-otp', async (req, res) => {
     const { email, otp } = req.body;
     if (!email || !otp)
@@ -321,9 +287,7 @@ app.post('/api/verify-registration-otp', async (req, res) => {
     }
 });
 
-// POST /api/verify-registration-sms-otp
-// Purpose:  Same as above but for the SMS OTP flow.
-//           Normalizes the phone to international format before DB lookup.
+
 app.post('/api/verify-registration-sms-otp', async (req, res) => {
     const { phone, otp } = req.body;
     if (!phone || !otp)
@@ -346,19 +310,7 @@ app.post('/api/verify-registration-sms-otp', async (req, res) => {
     }
 });
 
-// ============================================================
-// PATIENT SELF-REGISTRATION
-// POST /api/register
-// Purpose:  Registers a new patient after OTP verification.
-//           Handles three scenarios:
-//             A) Brand new person — creates patient + user_account
-//             B) Staff registering as patient — links patient to
-//                their existing staff account (no new password)
-//             C) Already a patient — rejected with 400 error
-//           Uses a DB transaction to ensure atomicity (patient
-//           record and user account are created together or not at all).
-//           Sends a registration confirmation email with barcode after commit.
-// ============================================================
+
 app.post('/api/register', async (req, res) => {
     let connection;
     try {
@@ -489,22 +441,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// ============================================================
-// LOGIN
-// POST /api/login
-// Purpose:  Authenticates a user (patient, staff, or admin) and
-//           returns a user object with role info.
-//           Supports dual-role accounts (e.g., a nurse who is also
-//           a patient). If the user has multiple roles, the frontend
-//           may prompt them to select one before proceeding.
-// Special case: hardcoded admin/admin shortcut for development.
-// Flow:
-//   1. Look up user_account by username (email)
-//   2. Verify bcrypt password
-//   3. Collect all active roles (staff role + patient role)
-//   4. If multi-role and no selectedRole provided → signal for role selection
-//   5. Build and return unified user object
-// ============================================================
+
 app.post('/api/login', async (req, res) => {
     const { username, password, selectedRole } = req.body;
 

@@ -25,8 +25,6 @@ app.use('/api', labRoutes);
 app.use('/api', receptionistRoutes);
 app.use('/api', adminRoutes);
 
-// Also mount the standalone staff feedback routes (already inside auth? Better to put in a separate staffRoutes? We'll keep them in authRoutes for simplicity)
-// But note: the POST /api/staff/feedback appears three times. We'll keep only the final one in authRoutes.
 
 // Initialize database and start server
 initDB().then(() => {

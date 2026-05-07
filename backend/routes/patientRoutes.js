@@ -3,28 +3,14 @@ const { db } = require('../config/db');
 const { calcEstimatedTime, sendBookingEmail } = require('../utils/helpers');
 const router = express.Router();
 
-// ============================================================
-// PATIENT DASHBOARD ROUTES
-// Purpose: Endpoints for the patient-facing dashboard.
-//          Covers appointment booking, medical records, prescriptions,
-//          lab results, referrals, profile updates, and feedback.
-// ============================================================
 
-// HELPER: generateBarcode
-// Purpose:  Generates a short unique barcode string using the current
-//           timestamp in base-36 and a random suffix. Used for family
-//           members who don't go through the main OTP registration flow.
 function generateBarcode() {
     const ts  = Date.now().toString(36).toUpperCase();           // Timestamp in base-36
     const rnd = Math.random().toString(36).substring(2, 6).toUpperCase(); // 4 random chars
     return `BHK-${ts}-${rnd}`;
 }
 
-// HELPER: calcEstimatedTime
-// Purpose:  Calculates the estimated consultation time window for a
-//           given token number based on OPD settings stored in the DB
-//           (start hour and slot duration in minutes).
-// Returns:  A string like "08:00 AM – 08:10 AM", or null on error.
+
 async function calcEstimatedTime(tokenNo) {
     try {
         const [rows] = await db.query(
@@ -54,12 +40,7 @@ async function calcEstimatedTime(tokenNo) {
     }
 }
 
-// GET /api/opd-slots
-// Purpose:  Returns the available appointment capacity for a given date.
-//           Checks if the date is closed (holiday), counts existing bookings,
-//           and returns remaining slots. Used by the booking calendar UI.
-// Query params:
-//   date — YYYY-MM-DD
+ 
 app.get('/api/opd-slots', async (req, res) => {
     const { date } = req.query;
     if (!date)
@@ -108,19 +89,7 @@ app.get('/api/opd-slots', async (req, res) => {
     }
 });
 
-// POST /api/book-appointment
-// Purpose:  Books an OPD appointment for a patient.
-//           Enforces business rules:
-//             1. Date must not be closed
-//             2. Daily cap of 60 must not be exceeded
-//             3. Patient must not already have a booking on that day
-//             4. Assigns the next FCFS queue token
-//             5. Calculates start/end time based on token position
-//             6. Sends an appointment confirmation email (non-blocking)
-// Body params:
-//   patientId — patient's DB ID
-//   date      — YYYY-MM-DD
-//   visitType — 'New' (default) | 'Follow-up'
+ 
 app.post('/api/book-appointment', async (req, res) => {
     const { patientId, date, visitType = 'New' } = req.body;
     if (!patientId || !date)
@@ -205,12 +174,7 @@ app.post('/api/book-appointment', async (req, res) => {
     }
 });
 
-// HELPER: sendBookingEmail
-// Purpose:  Fetches patient details, generates the OPD slip HTML,
-//           and sends the confirmation email with the barcode.
-//           Also logs the notification to the notifications table.
-//           Called asynchronously after booking — failures are logged
-//           but do not affect the booking response.
+ 
 async function sendBookingEmail(patientId, appointmentId, date, tokenNo, estimatedTime, visitType) {
     try {
         // Load patient contact info and barcode
@@ -263,11 +227,7 @@ async function sendBookingEmail(patientId, appointmentId, date, tokenNo, estimat
     }
 }
 
-// GET /api/my-appointments
-// Purpose:  Returns all non-cancelled appointments for a patient.
-//           Used on the patient dashboard's "My Appointments" tab.
-// Query params:
-//   patientId — the patient's DB ID
+ 
 app.get('/api/my-appointments', async (req, res) => {
     const { patientId } = req.query;
     if (!patientId)
@@ -294,10 +254,7 @@ app.get('/api/my-appointments', async (req, res) => {
     }
 });
 
-// DELETE /api/cancel-appointment/:id
-// Purpose:  Cancels a patient's booked appointment.
-//           Only works for appointments still in 'booked' status —
-//           completed or already cancelled appointments are rejected.
+ 
 app.delete('/api/cancel-appointment/:id', async (req, res) => {
     try {
         const [result] = await db.query(
@@ -312,10 +269,7 @@ app.delete('/api/cancel-appointment/:id', async (req, res) => {
     }
 });
 
-// GET /api/medical-records/:patientId
-// Purpose:  Returns all treatment/consultation records for a patient.
-//           Includes diagnosis, prescription, vitals, and the doctor's name.
-//           Used on the patient's "Medical Records" tab.
+ 
 app.get('/api/medical-records/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -338,10 +292,7 @@ app.get('/api/medical-records/:patientId', async (req, res) => {
     }
 });
 
-// GET /api/prescriptions/:patientId
-// Purpose:  Returns all prescriptions for a patient, including
-//           fulfillment status (dispensed or pending).
-//           Used on the patient's "Prescriptions" tab.
+
 app.get('/api/prescriptions/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -366,10 +317,7 @@ app.get('/api/prescriptions/:patientId', async (req, res) => {
     }
 });
 
-// GET /api/lab-results/:patientId  (second definition — for patient dashboard)
-// Purpose:  Returns a patient's lab test orders with results.
-//           Note: This is a duplicate route path with the doctor route above.
-//           In Express, this second definition will override the first.
+ 
 app.get('/api/lab-results/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -393,9 +341,7 @@ app.get('/api/lab-results/:patientId', async (req, res) => {
     }
 });
 
-// GET /api/test-file/:testId
-// Purpose:  Serves the uploaded file (e.g., PDF report) attached to a
-//           lab test result. Streams the file as a download.
+ 
 app.get('/api/test-file/:testId', async (req, res) => {
     try {
         const [rows] = await db.query(
@@ -417,9 +363,7 @@ app.get('/api/test-file/:testId', async (req, res) => {
     }
 });
 
-// GET /api/referrals/:patientId
-// Purpose:  Returns all referrals issued for a patient, including
-//           the issuing doctor's name and target clinic/urgency.
+ 
 app.get('/api/referrals/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -440,9 +384,7 @@ app.get('/api/referrals/:patientId', async (req, res) => {
     }
 });
 
-// GET /api/notifications/:patientId
-// Purpose:  Returns notification history for a patient (e.g., booking
-//           confirmations). Fails silently if the table doesn't exist yet.
+ 
 app.get('/api/notifications/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -461,11 +403,7 @@ app.get('/api/notifications/:patientId', async (req, res) => {
     }
 });
 
-// POST /api/update-profile
-// Purpose:  Allows a patient to update their profile information:
-//           demographics, contact details, medical background (allergies,
-//           conditions), and emergency contact.
-//           Keeps address_line1 and address columns in sync.
+ 
 app.post('/api/update-profile', async (req, res) => {
     const {
         patientId, full_name, nic, dob, gender, civil_status, blood_group,
@@ -506,9 +444,7 @@ app.post('/api/update-profile', async (req, res) => {
     }
 });
 
-// GET /api/feedback/:patientId
-// Purpose:  Returns a patient's own feedback submission history.
-//           Fails silently if the feedback table doesn't exist.
+ 
 app.get('/api/feedback/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -524,13 +460,7 @@ app.get('/api/feedback/:patientId', async (req, res) => {
     }
 });
 
-// POST /api/feedback
-// Purpose:  Submits a new feedback entry from a patient.
-//           Rating is optional; comment is required.
-// Body params:
-//   patientId — required
-//   rating    — optional integer (1–5)
-//   comment   — required non-empty string
+ 
 app.post('/api/feedback', async (req, res) => {
     const { patientId, rating, comment } = req.body;
 
@@ -552,12 +482,7 @@ app.post('/api/feedback', async (req, res) => {
     }
 });
 
-// GET /api/family-members
-// Purpose:  Returns all patients linked to an account (the primary
-//           patient + their family members). Used on the patient
-//           dashboard's family management section.
-// Query params:
-//   email — the logged-in user's email/username
+ 
 app.get('/api/family-members', async (req, res) => {
     const { email } = req.query;
     if (!email)
@@ -605,17 +530,7 @@ app.get('/api/family-members', async (req, res) => {
     }
 });
 
-// POST /api/add-family-member
-// Purpose:  Registers a new patient as a family member linked to
-//           the logged-in patient's account.
-//           Creates a new patient record with a generated barcode
-//           and inserts a patient_family link.
-//           Uses a transaction to keep patient and link creation atomic.
-// Body params:
-//   email     — account holder's email (identifies the primary patient)
-//   full_name, dob, gender — required
-//   relation  — e.g., "Spouse", "Child"
-//   nic, phone — optional
+ 
 app.post('/api/add-family-member', async (req, res) => {
     const { email, full_name, dob, gender, relation, nic, phone } = req.body;
     if (!email || !full_name || !dob || !gender)
@@ -685,13 +600,7 @@ app.post('/api/add-family-member', async (req, res) => {
     }
 });
 
-// DELETE /api/remove-family-member
-// Purpose:  Removes the link between a primary patient and a family
-//           member. Does NOT delete the family member's patient record —
-//           only removes the association. Prevents removal of self.
-// Body params:
-//   email         — account holder's email (identifies primary)
-//   memberPatientId — the family member's patient_id to unlink
+ 
 app.delete('/api/remove-family-member', async (req, res) => {
     const { email, memberPatientId } = req.body;
     if (!email || !memberPatientId)
@@ -727,5 +636,6 @@ app.delete('/api/remove-family-member', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
 
 module.exports = router;

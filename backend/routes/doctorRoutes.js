@@ -2,9 +2,7 @@ const express = require('express');
 const { db } = require('../config/db');
 const router = express.Router();
 
-// POST /api/staff/feedback (first definition — for legacy staff_feedback table)
-// Purpose:  Allows a staff member to submit feedback to administration.
-//           This version inserts into the staff_feedback table.
+ 
 app.post('/api/staff/feedback', async (req, res) => {
     const { staff_id, comment } = req.body;
     if (!staff_id || !comment?.trim())
@@ -23,20 +21,7 @@ app.post('/api/staff/feedback', async (req, res) => {
     }
 });
 
-// ============================================================
-// DOCTOR ROUTES
-// Purpose: Endpoints for the doctor's dashboard — patient lookup,
-//          appointment queue, consultation recording, test orders,
-//          and referrals.
-// ============================================================
-
-// GET /api/doctor/patient-lookup
-// Purpose:  Searches for patient(s) by barcode (exact) or NIC (which
-//           also returns linked family members). Used by the doctor
-//           during walk-in or ad-hoc consultations.
-// Query params:
-//   mode — 'barcode' (exact match) | 'nic' (also fetches family)
-//   q    — the search value
+ 
 app.get('/api/doctor/patient-lookup', async (req, res) => {
     const { mode, q } = req.query;
     if (!mode || !q)
@@ -97,10 +82,7 @@ app.get('/api/doctor/patient-lookup', async (req, res) => {
     }
 });
 
-// GET /api/doctor/today-queue
-// Purpose:  Returns all appointments scheduled for today, including
-//           basic patient details. Used for the doctor's main queue view
-//           and the stat cards at the top of their dashboard.
+ 
 app.get('/api/doctor/today-queue', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
@@ -124,11 +106,7 @@ app.get('/api/doctor/today-queue', async (req, res) => {
     }
 });
 
-// GET /api/doctor/appointments-by-date
-// Purpose:  Returns all appointments for a specific single date.
-//           Useful when the doctor needs to review another day's schedule.
-// Query params:
-//   date — YYYY-MM-DD
+ 
 app.get('/api/doctor/appointments-by-date', async (req, res) => {
     const { date } = req.query;
     if (!date)
@@ -154,12 +132,7 @@ app.get('/api/doctor/appointments-by-date', async (req, res) => {
     }
 });
 
-// GET /api/doctor/appointments-by-range
-// Purpose:  Returns all appointments within a date range.
-//           Used for the doctor's historical or scheduled view.
-// Query params:
-//   from — start date (YYYY-MM-DD)
-//   to   — end date (YYYY-MM-DD)
+ 
 app.get('/api/doctor/appointments-by-range', async (req, res) => {
     const { from, to } = req.query;
     if (!from || !to)
@@ -185,10 +158,7 @@ app.get('/api/doctor/appointments-by-range', async (req, res) => {
     }
 });
 
-// GET /api/doctor/patient-appointments/:patientId
-// Purpose:  Returns a specific patient's own appointment history.
-//           Used in the consultation dialog to select which appointment
-//           a treatment record belongs to.
+ 
 app.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -208,10 +178,7 @@ app.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
     }
 });
 
-// GET /api/doctor/patient-history/:patientId
-// Purpose:  Returns a patient's full treatment history — all
-//           consultation records with diagnoses, prescriptions,
-//           and the treating doctor's name. Used for clinical context.
+ 
 app.get('/api/doctor/patient-history/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -232,13 +199,7 @@ app.get('/api/doctor/patient-history/:patientId', async (req, res) => {
     }
 });
 
-// POST /api/doctor/treatment-record
-// Purpose:  Saves a consultation/treatment record written by a doctor.
-//           Stores vitals, diagnosis, treatment plan, and prescription.
-//           Also marks the corresponding appointment as 'completed'.
-// Body params: appointment_id, patient_id, staff_id, weight_kg,
-//              height_cm, chief_complaint, clinical_findings,
-//              diagnosis (required), treatment_details, prescription_details
+ 
 app.post('/api/doctor/treatment-record', async (req, res) => {
     const {
         appointment_id, patient_id, staff_id,
@@ -286,12 +247,7 @@ app.post('/api/doctor/treatment-record', async (req, res) => {
     }
 });
 
-// POST /api/doctor/referral
-// Purpose:  Issues a referral for a patient to another clinic or specialist.
-//           Stores urgency level, target clinic, and clinical summary.
-// Body params: appointment_id, patient_id, staff_id (all required),
-//              target_clinic (required), reason (required),
-//              consultant_name, urgency (optional, defaults to 'Routine')
+ 
 app.post('/api/doctor/referral', async (req, res) => {
     const {
         appointment_id, patient_id, staff_id,
@@ -324,13 +280,7 @@ app.post('/api/doctor/referral', async (req, res) => {
     }
 });
 
-// POST /api/doctor/order-tests
-// Purpose:  Allows a doctor to order one or more lab/diagnostic tests
-//           for a patient during or after a consultation.
-//           Each test in the array is inserted as a separate row.
-// Body params:
-//   appointment_id, patient_id, staff_id — required context
-//   tests — array of { test_type, test_name, clinical_notes }
+ 
 app.post('/api/doctor/order-tests', async (req, res) => {
     const { appointment_id, patient_id, staff_id, tests } = req.body;
     if (!appointment_id || !patient_id || !staff_id || !Array.isArray(tests) || !tests.length)
@@ -361,14 +311,7 @@ app.post('/api/doctor/order-tests', async (req, res) => {
     }
 });
 
-// POST /api/doctor/lab-findings
-// Purpose:  Allows a doctor to add clinical notes to a specific test order
-//           (before or after results are uploaded). Used to annotate
-//           what the doctor was looking for.
-// Body params:
-//   test_id       — the test to annotate
-//   patient_id    — used for security (ensures the test belongs to this patient)
-//   clinical_notes — doctor's notes
+ 
 app.post('/api/doctor/lab-findings', async (req, res) => {
     const { test_id, patient_id, clinical_notes } = req.body;
     const notes = clinical_notes || req.body.doctor_findings; // Accept both field names
@@ -397,11 +340,7 @@ app.post('/api/doctor/lab-findings', async (req, res) => {
     }
 });
 
-// GET /api/lab-results/:patientId
-// Purpose:  Returns all lab test orders and their results for a
-//           specific patient. Used by both the doctor (to review results)
-//           and the patient dashboard (to see their own results).
-//           Joins medical_tests → test_results and staff for doctor name.
+ 
 app.get('/api/lab-results/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -426,9 +365,7 @@ app.get('/api/lab-results/:patientId', async (req, res) => {
     }
 });
 
-// POST /api/doctor/update-profile
-// Purpose:  Allows a doctor (or any staff) to update their own
-//           profile details: first name, surname, and phone.
+ 
 app.post('/api/doctor/update-profile', async (req, res) => {
     const { staff_id, first_name, surname, phone } = req.body;
     if (!staff_id)
@@ -444,14 +381,8 @@ app.post('/api/doctor/update-profile', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
+ 
 
-// POST /api/doctor/change-password
-// Purpose:  Allows a staff member to change their own login password.
-//           Verifies the current password with bcrypt before updating.
-// Body params:
-//   staff_id — identifies which user_account to update
-//   current  — the existing password (must match)
-//   next     — the new desired password
 app.post('/api/doctor/change-password', async (req, res) => {
     const { staff_id, current, next } = req.body;
     if (!staff_id || !current || !next)
@@ -482,9 +413,7 @@ app.post('/api/doctor/change-password', async (req, res) => {
     }
 });
 
-// GET /api/staff/notifications/:staffId
-// Purpose:  Returns recent notifications sent to a specific staff member.
-//           Filters to only sent/delivered/opened notifications.
+ 
 app.get('/api/staff/notifications/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -500,10 +429,7 @@ app.get('/api/staff/notifications/:staffId', async (req, res) => {
     }
 });
 
-// GET /api/staff/feedback/:staffId
-// Purpose:  Returns feedback submitted via the patient feedback table
-//           that is associated with a staff member's user_account.
-//           (This is a different feedback table than staff_feedback.)
+ 
 app.get('/api/staff/feedback/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -521,10 +447,7 @@ app.get('/api/staff/feedback/:staffId', async (req, res) => {
     }
 });
 
-// POST /api/staff/feedback (second definition)
-// Purpose:  Allows a staff member to submit feedback via the main
-//           feedback table (linked to user_account, not staff_feedback).
-//           Looks up the user_id for the given staff_id before inserting.
+ 
 app.post('/api/staff/feedback', async (req, res) => {
     const { staff_id, comment } = req.body;
     if (!staff_id || !comment?.trim())
@@ -548,5 +471,6 @@ app.post('/api/staff/feedback', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
 
 module.exports = router;

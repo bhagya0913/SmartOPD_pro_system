@@ -2,15 +2,7 @@ const express = require('express');
 const { db } = require('../config/db');
 const router = express.Router();
 
-// ============================================================
-// LAB ROUTES
-// Purpose: Endpoints used by the laboratory/diagnostic technician
-//          dashboard to manage test orders and upload results.
-// ============================================================
-
-// GET /api/lab/stats
-// Purpose:  Returns today's lab workload summary:
-//           pending (requested), in-progress, and completed today.
+ 
 app.get('/api/lab/stats', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
@@ -31,11 +23,7 @@ app.get('/api/lab/stats', async (req, res) => {
     }
 });
 
-// GET /api/lab/worklist
-// Purpose:  Returns a list of medical tests with full patient and
-//           doctor details. Status filter narrows down the view.
-// Query params:
-//   status — 'requested' (default) | 'in_progress' | 'completed' | 'all'
+ 
 app.get('/api/lab/worklist', async (req, res) => {
     const { status = 'requested' } = req.query;
     try {
@@ -79,10 +67,7 @@ app.get('/api/lab/worklist', async (req, res) => {
     }
 });
 
-// GET /api/lab/patient-tests
-// Purpose:  Looks up a patient by barcode or NIC and returns all
-//           their non-cancelled test orders. Used when a patient
-//           arrives at the lab for sample collection.
+ 
 app.get('/api/lab/patient-tests', async (req, res) => {
     const { term } = req.query;
     if (!term)
@@ -114,13 +99,7 @@ app.get('/api/lab/patient-tests', async (req, res) => {
     }
 });
 
-// POST /api/lab/update-status
-// Purpose:  Updates the status of a test (requested → in_progress → completed).
-//           When moving to 'in_progress', also records the sample collection time.
-// Body params:
-//   test_id       — the test to update
-//   status        — new status (in_progress | completed | cancelled)
-//   technician_id — optional, staff ID of the lab technician
+ 
 app.post('/api/lab/update-status', async (req, res) => {
     const { test_id, status, technician_id } = req.body;
     if (!test_id || !status)
@@ -152,15 +131,7 @@ app.post('/api/lab/update-status', async (req, res) => {
     }
 });
 
-// POST /api/lab/upload-result
-// Purpose:  Submits lab test findings/results for a specific test.
-//           Uses an UPSERT so results can be corrected if resubmitted.
-//           Also auto-marks the test status as 'completed'.
-// Body params:
-//   test_id     — which test the result belongs to
-//   summary     — the actual findings text (required)
-//   remarks     — optional additional notes
-//   uploaded_by — staff ID of the technician uploading the result
+ 
 app.post('/api/lab/upload-result',
     async (req, res) => {
         const { test_id, summary, remarks, uploaded_by } = req.body;
