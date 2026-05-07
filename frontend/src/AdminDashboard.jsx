@@ -286,6 +286,8 @@ function StaffSection() {
     const [filterRole, setFilterRole] = useState('All');
     const [notice,     setNotice]     = useState(null);
 
+    //=============
+    const [statusFilter, setStatusFilter] = useState('all');
     const [form, setForm] = useState({
         staffId: '', firstName: '', surname: '', email: '', phone: '', nic: '', roleName: 'Doctor'
     });
@@ -358,7 +360,11 @@ function StaffSection() {
     const filtered = staffList.filter(s => {
         const matchRole   = filterRole === 'All' || s.role_name === filterRole;
         const matchSearch = !search || `${s.first_name} ${s.surname} ${s.email} ${s.staff_id}`.toLowerCase().includes(search.toLowerCase());
-        return matchRole && matchSearch;
+        // ==========================
+        const matchStatus = statusFilter === 'all' ||
+                (statusFilter === 'active' && s.is_active === 1) ||
+                (statusFilter === 'inactive' && s.is_active === 0);
+        return matchRole && matchSearch && matchStatus;
     });
     const byRole = r => staffList.filter(s => s.role_name === r && s.is_active).length;
 
@@ -393,6 +399,15 @@ function StaffSection() {
                     ))}
                 </div>
             </div>
+            
+            <div className="adm-filter-bar" >
+                <div className="adm-role-filter">
+                    <button className={`adm-pill-btn ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>All</button>
+                    <button className={`adm-pill-btn ${statusFilter === 'active' ? 'active' : ''}`} onClick={() => setStatusFilter('active')}>Active</button>
+                    <button className={`adm-pill-btn ${statusFilter === 'inactive' ? 'active' : ''}`} onClick={() => setStatusFilter('inactive')}>Inactive</button>
+                </div>
+            </div>
+            
 
             <div className="adm-card">
                 {loading ? <div className="adm-loading"><div className="adm-spinner"/></div> : (
