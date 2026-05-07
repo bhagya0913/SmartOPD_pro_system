@@ -3,7 +3,7 @@ const { db } = require('../config/db');
 const router = express.Router();
 
  
-router.post('/api/staff/feedback', async (req, res) => {
+router.post('/staff/feedback', async (req, res) => {
     const { staff_id, comment } = req.body;
     if (!staff_id || !comment?.trim())
         return res.status(400).json({ success: false, message: 'staff_id and comment required.' });
@@ -22,7 +22,7 @@ router.post('/api/staff/feedback', async (req, res) => {
 });
 
  
-router.get('/api/doctor/patient-lookup', async (req, res) => {
+router.get('/doctor/patient-lookup', async (req, res) => {
     const { mode, q } = req.query;
     if (!mode || !q)
         return res.status(400).json({ success: false, message: 'mode and q required' });
@@ -83,7 +83,7 @@ router.get('/api/doctor/patient-lookup', async (req, res) => {
 });
 
  
-router.get('/api/doctor/today-queue', async (req, res) => {
+router.get('/doctor/today-queue', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {
         const [rows] = await db.query(`
@@ -107,7 +107,7 @@ router.get('/api/doctor/today-queue', async (req, res) => {
 });
 
  
-router.get('/api/doctor/appointments-by-date', async (req, res) => {
+router.get('/doctor/appointments-by-date', async (req, res) => {
     const { date } = req.query;
     if (!date)
         return res.status(400).json({ success: false, message: 'date required' });
@@ -133,7 +133,7 @@ router.get('/api/doctor/appointments-by-date', async (req, res) => {
 });
 
  
-router.get('/api/doctor/appointments-by-range', async (req, res) => {
+router.get('/doctor/appointments-by-range', async (req, res) => {
     const { from, to } = req.query;
     if (!from || !to)
         return res.status(400).json({ success: false, message: 'from and to are required' });
@@ -159,7 +159,7 @@ router.get('/api/doctor/appointments-by-range', async (req, res) => {
 });
 
  
-router.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
+router.get('/doctor/patient-appointments/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -179,7 +179,7 @@ router.get('/api/doctor/patient-appointments/:patientId', async (req, res) => {
 });
 
  
-router.get('/api/doctor/patient-history/:patientId', async (req, res) => {
+router.get('/doctor/patient-history/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -200,7 +200,7 @@ router.get('/api/doctor/patient-history/:patientId', async (req, res) => {
 });
 
  
-router.post('/api/doctor/treatment-record', async (req, res) => {
+router.post('/doctor/treatment-record', async (req, res) => {
     const {
         appointment_id, patient_id, staff_id,
         weight_kg, height_cm, chief_complaint, clinical_findings,
@@ -248,7 +248,7 @@ router.post('/api/doctor/treatment-record', async (req, res) => {
 });
 
  
-router.post('/api/doctor/referral', async (req, res) => {
+router.post('/doctor/referral', async (req, res) => {
     const {
         appointment_id, patient_id, staff_id,
         target_clinic, consultant_name, urgency, reason, clinical_summary
@@ -281,7 +281,7 @@ router.post('/api/doctor/referral', async (req, res) => {
 });
 
  
-router.post('/api/doctor/order-tests', async (req, res) => {
+router.post('/doctor/order-tests', async (req, res) => {
     const { appointment_id, patient_id, staff_id, tests } = req.body;
     if (!appointment_id || !patient_id || !staff_id || !Array.isArray(tests) || !tests.length)
         return res.status(400).json({ success: false, message: 'Missing required fields.' });
@@ -312,7 +312,7 @@ router.post('/api/doctor/order-tests', async (req, res) => {
 });
 
  
-router.post('/api/doctor/lab-findings', async (req, res) => {
+router.post('/doctor/lab-findings', async (req, res) => {
     const { test_id, patient_id, clinical_notes } = req.body;
     const notes = clinical_notes || req.body.doctor_findings; // Accept both field names
 
@@ -341,7 +341,7 @@ router.post('/api/doctor/lab-findings', async (req, res) => {
 });
 
  
-router.get('/api/lab-results/:patientId', async (req, res) => {
+router.get('/lab-results/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -366,7 +366,7 @@ router.get('/api/lab-results/:patientId', async (req, res) => {
 });
 
  
-router.post('/api/doctor/update-profile', async (req, res) => {
+router.post('/doctor/update-profile', async (req, res) => {
     const { staff_id, first_name, surname, phone } = req.body;
     if (!staff_id)
         return res.status(400).json({ success: false, message: 'staff_id required.' });
@@ -383,7 +383,7 @@ router.post('/api/doctor/update-profile', async (req, res) => {
 });
  
 
-router.post('/api/doctor/change-password', async (req, res) => {
+router.post('/doctor/change-password', async (req, res) => {
     const { staff_id, current, next } = req.body;
     if (!staff_id || !current || !next)
         return res.status(400).json({ success: false, message: 'All fields required.' });
@@ -414,7 +414,7 @@ router.post('/api/doctor/change-password', async (req, res) => {
 });
 
  
-router.get('/api/staff/notifications/:staffId', async (req, res) => {
+router.get('/staff/notifications/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT notification_id, email_subject, message, status, sent_at
@@ -430,7 +430,7 @@ router.get('/api/staff/notifications/:staffId', async (req, res) => {
 });
 
  
-router.get('/api/staff/feedback/:staffId', async (req, res) => {
+router.get('/staff/feedback/:staffId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT feedback_id, comments AS comment, date_submitted, status
@@ -448,7 +448,7 @@ router.get('/api/staff/feedback/:staffId', async (req, res) => {
 });
 
  
-router.post('/api/staff/feedback', async (req, res) => {
+router.post('/staff/feedback', async (req, res) => {
     const { staff_id, comment } = req.body;
     if (!staff_id || !comment?.trim())
         return res.status(400).json({ success: false, message: 'staff_id and comment required.' });

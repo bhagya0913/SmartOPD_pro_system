@@ -5,7 +5,7 @@ const transporter = require('../config/email');
 const router = express.Router();
 
 
-router.get('/api/admin/staff', async (req, res) => {
+router.get('/admin/staff', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT s.staff_id, s.first_name, s.surname, s.email, s.phone, s.nic, s.is_active,
@@ -22,7 +22,7 @@ router.get('/api/admin/staff', async (req, res) => {
 });
 
 
-router.get('/api/admin/check-email', async (req, res) => {
+router.get('/admin/check-email', async (req, res) => {
     const { email } = req.query;
     if (!email)
         return res.status(400).json({ success: false, message: 'Email required.' });
@@ -89,7 +89,7 @@ router.get('/api/admin/check-email', async (req, res) => {
 });
 
 
-router.post('/api/admin/add-staff', async (req, res) => {
+router.post('/admin/add-staff', async (req, res) => {
     const { staffId, firstName, surname, email, phone, nic, roleName } = req.body;
 
     // Validate required fields
@@ -338,7 +338,7 @@ router.post('/api/admin/add-staff', async (req, res) => {
 });
 
 
-router.delete('/api/admin/remove-staff/:staffId', async (req, res) => {
+router.delete('/admin/remove-staff/:staffId', async (req, res) => {
     const staffId = req.params.staffId;
     try {
         const [result] = await db.query(
@@ -355,7 +355,7 @@ router.delete('/api/admin/remove-staff/:staffId', async (req, res) => {
 });
 
 
-router.patch('/api/admin/reactivate-staff/:staffId', async (req, res) => {
+router.patch('/admin/reactivate-staff/:staffId', async (req, res) => {
     const staffId = req.params.staffId;
     console.log(`Reactivating staff ID: ${staffId}`);
     try {
@@ -374,7 +374,7 @@ router.patch('/api/admin/reactivate-staff/:staffId', async (req, res) => {
 });
 
 
-router.get('/api/admin/patients', async (req, res) => {
+router.get('/admin/patients', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 200, 500); // Cap at 500 for safety
     try {
         const [rows] = await db.query(`
@@ -394,7 +394,7 @@ router.get('/api/admin/patients', async (req, res) => {
 });
 
 
-router.get('/api/admin/dashboard-stats', async (req, res) => {
+router.get('/admin/dashboard-stats', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
@@ -435,7 +435,7 @@ router.get('/api/admin/dashboard-stats', async (req, res) => {
 });
 
 
-router.patch('/api/admin/patient-status/:id', async (req, res) => {
+router.patch('/admin/patient-status/:id', async (req, res) => {
     const { is_active, reason } = req.body;
     const patientId = req.params.id;
     try {
@@ -465,7 +465,7 @@ router.patch('/api/admin/patient-status/:id', async (req, res) => {
 });
 
 
-router.get('/api/admin/patient-report/:id', async (req, res) => {
+router.get('/admin/patient-report/:id', async (req, res) => {
     const patientId = req.params.id;
     const type      = req.query.type || 'patient_history';
 
@@ -522,7 +522,7 @@ router.get('/api/admin/patient-report/:id', async (req, res) => {
 });
 
 
-router.get('/api/admin/reports/generate', async (req, res) => {
+router.get('/admin/reports/generate', async (req, res) => {
     const { type, from, to } = req.query;
     if (!type || !from || !to)
         return res.status(400).json({ success: false, message: 'type, from, and to are required.' });
@@ -691,7 +691,7 @@ router.get('/api/admin/reports/generate', async (req, res) => {
 });
 
 
-router.get('/api/admin/export-data', async (req, res) => {
+router.get('/admin/export-data', async (req, res) => {
     const { table, columns, date_from, date_to } = req.query;
 
     // Security: only allow known safe tables
@@ -748,7 +748,7 @@ router.get('/api/admin/export-data', async (req, res) => {
 });
 
 
-router.get('/api/admin/logs', async (req, res) => {
+router.get('/admin/logs', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 500, 1000);
     const { from, to } = req.query;
     try {
@@ -771,7 +771,7 @@ router.get('/api/admin/logs', async (req, res) => {
 });
 
 
-router.get('/api/admin/opd-settings', async (req, res) => {
+router.get('/admin/opd-settings', async (req, res) => {
     try {
         const [rows] = await db.query(
             `SELECT setting_key, setting_value FROM system_settings`
@@ -792,7 +792,7 @@ router.get('/api/admin/opd-settings', async (req, res) => {
 });
 
 
-router.post('/api/admin/opd-settings', async (req, res) => {
+router.post('/admin/opd-settings', async (req, res) => {
     const {
         opd_start_hour, opd_end_hour, slot_capacity,
         consultation_duration, closed_dates
@@ -816,7 +816,7 @@ router.post('/api/admin/opd-settings', async (req, res) => {
 });
 
 
-router.get('/api/admin/feedback', async (req, res) => {
+router.get('/admin/feedback', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT f.feedback_id, f.comment, f.admin_note, f.date_submitted, f.status,
@@ -836,7 +836,7 @@ router.get('/api/admin/feedback', async (req, res) => {
 });
 
 
-router.patch('/api/admin/feedback/:id', async (req, res) => {
+router.patch('/admin/feedback/:id', async (req, res) => {
     const { admin_note, status } = req.body;
     try {
         await db.query(

@@ -8,7 +8,7 @@ const { buildRegistrationEmail, buildRegistrationEmailForExistingStaff } = requi
 const router = express.Router();
 
  
-router.post('/api/forgot-password', async (req, res) => {
+router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
 
     // Validate that email was provided
@@ -57,7 +57,7 @@ router.post('/api/forgot-password', async (req, res) => {
 });
 
  
-router.post('/api/verify-token', async (req, res) => {
+router.post('/verify-token', async (req, res) => {
     const { email, token } = req.body;
 
     if (!email || !token)
@@ -80,7 +80,7 @@ router.post('/api/verify-token', async (req, res) => {
 });
 
  
-router.post('/api/reset-password', async (req, res) => {
+router.post('/reset-password', async (req, res) => {
     const { email, token, newPassword } = req.body;
 
     if (!email || !token || !newPassword)
@@ -117,7 +117,7 @@ router.post('/api/reset-password', async (req, res) => {
 });
 
  
-router.post('/api/reset-password', async (req, res) => {
+router.post('/reset-password', async (req, res) => {
     const { email, token, newPassword } = req.body;
     if (!email || !token || !newPassword)
         return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -145,7 +145,7 @@ router.post('/api/reset-password', async (req, res) => {
 });
 
  
-router.post('/api/send-registration-otp', async (req, res) => {
+router.post('/send-registration-otp', async (req, res) => {
     const { email } = req.body;
 
     // Basic email format validation
@@ -218,7 +218,7 @@ router.post('/api/send-registration-otp', async (req, res) => {
 });
 
  
-router.post('/api/send-registration-sms-otp', async (req, res) => {
+router.post('/send-registration-sms-otp', async (req, res) => {
     const { phone } = req.body;
 
     // Validate Sri Lankan phone number format (+94 or 0 prefix, 9 digits after)
@@ -266,7 +266,7 @@ router.post('/api/send-registration-sms-otp', async (req, res) => {
 });
 
 
-router.post('/api/verify-registration-otp', async (req, res) => {
+router.post('/verify-registration-otp', async (req, res) => {
     const { email, otp } = req.body;
     if (!email || !otp)
         return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
@@ -288,7 +288,7 @@ router.post('/api/verify-registration-otp', async (req, res) => {
 });
 
 
-router.post('/api/verify-registration-sms-otp', async (req, res) => {
+router.post('/verify-registration-sms-otp', async (req, res) => {
     const { phone, otp } = req.body;
     if (!phone || !otp)
         return res.status(400).json({ success: false, message: 'Phone and OTP are required.' });
@@ -311,7 +311,7 @@ router.post('/api/verify-registration-sms-otp', async (req, res) => {
 });
 
 
-router.post('/api/register', async (req, res) => {
+router.post('/register', async (req, res) => {
     let connection;
     try {
         // Get a dedicated connection from the pool for this transaction
@@ -442,7 +442,7 @@ router.post('/api/register', async (req, res) => {
 });
 
 
-router.post('/api/login', async (req, res) => {
+router.post('/login', async (req, res) => {
     const { username, password, selectedRole } = req.body;
 
     if (!username || !password)

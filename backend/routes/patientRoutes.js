@@ -4,7 +4,7 @@ const { calcEstimatedTime, generateBarcode, sendBookingEmail } = require('../uti
 const router = express.Router();
 
  
-router.get('/api/opd-slots', async (req, res) => {
+router.get('/opd-slots', async (req, res) => {
     const { date } = req.query;
     if (!date)
         return res.status(400).json({ success: false, message: 'date required' });
@@ -53,7 +53,7 @@ router.get('/api/opd-slots', async (req, res) => {
 });
 
  
-router.post('/api/book-appointment', async (req, res) => {
+router.post('/book-appointment', async (req, res) => {
     const { patientId, date, visitType = 'New' } = req.body;
     if (!patientId || !date)
         return res.status(400).json({ success: false, message: 'patientId and date are required.' });
@@ -138,7 +138,7 @@ router.post('/api/book-appointment', async (req, res) => {
 });
 
  
-router.get('/api/my-appointments', async (req, res) => {
+router.get('/my-appointments', async (req, res) => {
     const { patientId } = req.query;
     if (!patientId)
         return res.status(400).json({ success: false, message: 'patientId required' });
@@ -165,7 +165,7 @@ router.get('/api/my-appointments', async (req, res) => {
 });
 
  
-router.delete('/api/cancel-appointment/:id', async (req, res) => {
+router.delete('/cancel-appointment/:id', async (req, res) => {
     try {
         const [result] = await db.query(
             `UPDATE appointments SET status='cancelled' WHERE appointment_id=? AND status='booked'`,
@@ -180,7 +180,7 @@ router.delete('/api/cancel-appointment/:id', async (req, res) => {
 });
 
  
-router.get('/api/medical-records/:patientId', async (req, res) => {
+router.get('/medical-records/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -203,7 +203,7 @@ router.get('/api/medical-records/:patientId', async (req, res) => {
 });
 
 
-router.get('/api/prescriptions/:patientId', async (req, res) => {
+router.get('/prescriptions/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -228,7 +228,7 @@ router.get('/api/prescriptions/:patientId', async (req, res) => {
 });
 
  
-router.get('/api/lab-results/:patientId', async (req, res) => {
+router.get('/lab-results/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -252,7 +252,7 @@ router.get('/api/lab-results/:patientId', async (req, res) => {
 });
 
  
-router.get('/api/test-file/:testId', async (req, res) => {
+router.get('/test-file/:testId', async (req, res) => {
     try {
         const [rows] = await db.query(
             `SELECT file_path FROM test_results WHERE test_id=? LIMIT 1`,
@@ -274,7 +274,7 @@ router.get('/api/test-file/:testId', async (req, res) => {
 });
 
  
-router.get('/api/referrals/:patientId', async (req, res) => {
+router.get('/referrals/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -295,7 +295,7 @@ router.get('/api/referrals/:patientId', async (req, res) => {
 });
 
  
-router.get('/api/notifications/:patientId', async (req, res) => {
+router.get('/notifications/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT notification_id, email_subject, message, status, sent_at
@@ -314,7 +314,7 @@ router.get('/api/notifications/:patientId', async (req, res) => {
 });
 
  
-router.post('/api/update-profile', async (req, res) => {
+router.post('/update-profile', async (req, res) => {
     const {
         patientId, full_name, nic, dob, gender, civil_status, blood_group,
         phone, address_line1, address, emergency_contact,
@@ -355,7 +355,7 @@ router.post('/api/update-profile', async (req, res) => {
 });
 
  
-router.get('/api/feedback/:patientId', async (req, res) => {
+router.get('/feedback/:patientId', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT feedback_id, rating, comment, submitted_at, created_at
@@ -371,7 +371,7 @@ router.get('/api/feedback/:patientId', async (req, res) => {
 });
 
  
-router.post('/api/feedback', async (req, res) => {
+router.post('/feedback', async (req, res) => {
     const { patientId, rating, comment } = req.body;
 
     if (!patientId)
@@ -393,7 +393,7 @@ router.post('/api/feedback', async (req, res) => {
 });
 
  
-router.get('/api/family-members', async (req, res) => {
+router.get('/family-members', async (req, res) => {
     const { email } = req.query;
     if (!email)
         return res.status(400).json({ success: false, message: 'email required' });
@@ -441,7 +441,7 @@ router.get('/api/family-members', async (req, res) => {
 });
 
  
-router.post('/api/add-family-member', async (req, res) => {
+router.post('/add-family-member', async (req, res) => {
     const { email, full_name, dob, gender, relation, nic, phone } = req.body;
     if (!email || !full_name || !dob || !gender)
         return res.status(400).json({
@@ -511,7 +511,7 @@ router.post('/api/add-family-member', async (req, res) => {
 });
 
  
-router.delete('/api/remove-family-member', async (req, res) => {
+router.delete('/remove-family-member', async (req, res) => {
     const { email, memberPatientId } = req.body;
     if (!email || !memberPatientId)
         return res.status(400).json({ success: false, message: 'email and memberPatientId required.' });

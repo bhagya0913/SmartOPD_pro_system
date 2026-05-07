@@ -3,7 +3,7 @@ const { db } = require('../config/db');
 const router = express.Router();
 
 
-router.post('/api/pharmacist/save-note', async (req, res) => {
+router.post('/pharmacist/save-note', async (req, res) => {
     const { record_id, note } = req.body;
     if (!record_id)
         return res.status(400).json({ success: false, message: 'record_id required.' });
@@ -19,7 +19,7 @@ router.post('/api/pharmacist/save-note', async (req, res) => {
 });
 
 
-router.get('/api/pharmacist/reports/generate', async (req, res) => {
+router.get('/pharmacist/reports/generate', async (req, res) => {
     const { type, from, to } = req.query;
     if (!type || !from || !to)
         return res.status(400).json({ success: false, message: 'type, from, and to are required.' });
@@ -149,7 +149,7 @@ router.get('/api/pharmacist/reports/generate', async (req, res) => {
 });
 
 
-router.get('/api/staff/feedback/:staff_id', async (req, res) => {
+router.get('/staff/feedback/:staff_id', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -172,7 +172,7 @@ router.get('/api/staff/feedback/:staff_id', async (req, res) => {
 });
 
 
-router.get('/api/pharmacist/stats', async (req, res) => {
+router.get('/pharmacist/stats', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
 
@@ -219,7 +219,7 @@ router.get('/api/pharmacist/stats', async (req, res) => {
 });
 
 
-router.get('/api/pharmacist/pending-queue', async (req, res) => {
+router.get('/pharmacist/pending-queue', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
@@ -250,7 +250,7 @@ router.get('/api/pharmacist/pending-queue', async (req, res) => {
 });
 
 
-router.get('/api/pharmacist/all-prescriptions', async (req, res) => {
+router.get('/pharmacist/all-prescriptions', async (req, res) => {
     const { status } = req.query;
     try {
         let query = `
@@ -290,7 +290,7 @@ router.get('/api/pharmacist/all-prescriptions', async (req, res) => {
 });
 
 
-router.get('/api/pharmacist/prescriptions-by-patient', async (req, res) => {
+router.get('/pharmacist/prescriptions-by-patient', async (req, res) => {
     const { term } = req.query;
     if (!term)
         return res.status(400).json({ success: false, message: 'Missing search term.' });
@@ -336,7 +336,7 @@ router.get('/api/pharmacist/prescriptions-by-patient', async (req, res) => {
 });
 
 
-router.post('/api/pharmacist/fulfill-record', async (req, res) => {
+router.post('/pharmacist/fulfill-record', async (req, res) => {
     const { record_id, pharmacist_id, notes } = req.body;
     if (!record_id || !pharmacist_id) {
         return res.status(400).json({
