@@ -69,7 +69,7 @@ SmartOPD is a comprehensive web-based solution designed to digitize and streamli
 
 ## 📸 Screenshots
 
-### Patient Dashboard
+### Home Page
 ![Home Page](screenshots/Home%20Page.png)
 
 ### Patient Dashboard
