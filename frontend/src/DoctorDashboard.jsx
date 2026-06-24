@@ -488,9 +488,7 @@ function PrescriptionBuilder({ rows, onChange }) {
 }
 
 const emptyRxRow  = () => ({ drug: '', notes: '' });
-// ── FIX: added clinical_notes to test row ─────────────────────────────────────
 const emptyTestRow = () => ({ test_name: '', test_type: 'Lab', clinical_notes: '' });
-
 const serializeRx = rows =>
     rows.filter(r => r.drug.trim()).map((r, i) =>
         `${i + 1}. ${r.drug}${r.notes ? ' — ' + r.notes : ''}`

@@ -220,101 +220,101 @@ function LabHome({ user }) {
                 : worklist.length === 0
                     ? <Empty icon={FlaskConical} text="No test requests for this filter."/>
                     : (
-                        /* ENHANCED: card-based rows with expandable detail */
+                        
                         <div className="mh-timeline">
-  {worklist.map(t => {
-    const isOpen = expanded[t.test_id];
-    const age = calcAge(t.patient_dob);
-    return (
-      <div key={t.test_id} className="mh-timeline-row">
-        {/* Left date column (optional – you can omit or keep simple) */}
-        <div className="mh-date-badge">
-          <span className="mh-date-day">
-            {t.requested_at ? new Date(t.requested_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' }) : '—'}
-          </span>
-          <span className="mh-date-year">
-            {t.requested_at ? new Date(t.requested_at).getFullYear() : ''}
-          </span>
-        </div>
+                    {worklist.map(t => {
+                        const isOpen = expanded[t.test_id];
+                        const age = calcAge(t.patient_dob);
+                        return (
+                        <div key={t.test_id} className="mh-timeline-row">
+                            {/* Left date column (optional – you can omit or keep simple) */}
+                            <div className="mh-date-badge">
+                            <span className="mh-date-day">
+                                {t.requested_at ? new Date(t.requested_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' }) : '—'}
+                            </span>
+                            <span className="mh-date-year">
+                                {t.requested_at ? new Date(t.requested_at).getFullYear() : ''}
+                            </span>
+                            </div>
 
-        {/* Dot + line */}
-        <div className="mh-tl-gutter">
-          <div className={`mh-tl-dot mh-tl-dot-lab`} />
-          <div className="mh-tl-line" />
-        </div>
+                            {/* Dot + line */}
+                            <div className="mh-tl-gutter">
+                            <div className={`mh-tl-dot mh-tl-dot-lab`} />
+                            <div className="mh-tl-line" />
+                            </div>
 
-        {/* Card */}
-        <div className="mh-tl-content">
-          <div className={`mh-record-card ${isOpen ? 'mh-expanded' : ''}`}>
-            <div className="mh-card-head" onClick={() => toggleRow(t.test_id)}>
-              <div className="mh-card-head-left">
-                <div className="mh-card-icon" style={{ background: '#f0fdf4' }}>
-                  <FlaskConical size={16} />
-                </div>
-                <div className="mh-card-title-block">
-                  <div className="mh-card-title">{t.test_name}</div>
-                  <div className="mh-card-meta">
-                    <span className="mh-doctor-chip">
-                      <User size={11} /> Dr. {t.doctor_name || '—'}
-                    </span>
-                    <span className="mh-type-pill" style={{ background: '#f5f3ff', color: '#6d28d9' }}>
-                      {t.test_type}
-                    </span>
-                    {t.priority && t.priority !== 'normal' && (
-                      <span className="mh-status-chip mh-status-urgent">{t.priority}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="mh-card-head-right">
-                <span className={`mh-status-chip mh-status-${t.status === 'requested' ? 'pending' : t.status === 'in_progress' ? 'inprogress' : 'done'}`}>
-                  {t.status.replace('_', ' ')}
-                </span>
-                <button className="mh-expand-btn">
-                  {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-              </div>
-            </div>
+                            {/* Card */}
+                            <div className="mh-tl-content">
+                            <div className={`mh-record-card ${isOpen ? 'mh-expanded' : ''}`}>
+                                <div className="mh-card-head" onClick={() => toggleRow(t.test_id)}>
+                                <div className="mh-card-head-left">
+                                    <div className="mh-card-icon" style={{ background: '#f0fdf4' }}>
+                                    <FlaskConical size={16} />
+                                    </div>
+                                    <div className="mh-card-title-block">
+                                    <div className="mh-card-title">{t.test_name}</div>
+                                    <div className="mh-card-meta">
+                                        <span className="mh-doctor-chip">
+                                        <User size={11} /> Dr. {t.doctor_name || '—'}
+                                        </span>
+                                        <span className="mh-type-pill" style={{ background: '#f5f3ff', color: '#6d28d9' }}>
+                                        {t.test_type}
+                                        </span>
+                                        {t.priority && t.priority !== 'normal' && (
+                                        <span className="mh-status-chip mh-status-urgent">{t.priority}</span>
+                                        )}
+                                    </div>
+                                    </div>
+                                </div>
+                                <div className="mh-card-head-right">
+                                    <span className={`mh-status-chip mh-status-${t.status === 'requested' ? 'pending' : t.status === 'in_progress' ? 'inprogress' : 'done'}`}>
+                                    {t.status.replace('_', ' ')}
+                                    </span>
+                                    <button className="mh-expand-btn">
+                                    {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                    </button>
+                                </div>
+                                </div>
 
-            {isOpen && (
-              <div className="mh-card-body">
-                <div className="mh-info-strip">
-                  <div className="mh-info-field"><span>Requested</span><strong>{fmtDateTime(t.requested_at)}</strong></div>
-                  <div className="mh-info-field"><span>Doctor</span><strong>Dr. {t.doctor_name || '—'}</strong></div>
-                  <div className="mh-info-field"><span>Patient</span><strong>{t.patient_name} ({age ? `${age}y` : ''})</strong></div>
-                  <div className="mh-info-field"><span>Priority</span><strong>{t.priority || 'Normal'}</strong></div>
-                </div>
+                                {isOpen && (
+                                <div className="mh-card-body">
+                                    <div className="mh-info-strip">
+                                    <div className="mh-info-field"><span>Requested</span><strong>{fmtDateTime(t.requested_at)}</strong></div>
+                                    <div className="mh-info-field"><span>Doctor</span><strong>Dr. {t.doctor_name || '—'}</strong></div>
+                                    <div className="mh-info-field"><span>Patient</span><strong>{t.patient_name} ({age ? `${age}y` : ''})</strong></div>
+                                    <div className="mh-info-field"><span>Priority</span><strong>{t.priority || 'Normal'}</strong></div>
+                                    </div>
 
-                <div className="mh-cells-grid">
-                  {t.clinical_notes && (
-                    <div className="mh-cell mh-cell-wide">
-                      <label>Clinical Notes</label>
-                      <p>{t.clinical_notes}</p>
-                    </div>
-                  )}
-                  {/* Status action buttons */}
-                  <div className="mh-cell mh-cell-wide">
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      {t.status === 'requested' && (
-                        <button className="mh-print-btn" onClick={() => handleStatusChange(t.test_id, 'in_progress')}>
-                          <FlaskConical size={13} /> Start Processing
-                        </button>
-                      )}
-                      {t.status === 'in_progress' && (
-                        <button className="mh-print-btn" onClick={() => handleStatusChange(t.test_id, 'completed')}>
-                          <CheckCircle2 size={13} /> Mark Completed
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  })}
+                                    <div className="mh-cells-grid">
+                                    {t.clinical_notes && (
+                                        <div className="mh-cell mh-cell-wide">
+                                        <label>Clinical Notes</label>
+                                        <p>{t.clinical_notes}</p>
+                                        </div>
+                                    )}
+                                    {/* Status action buttons */}
+                                    <div className="mh-cell mh-cell-wide">
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                        {t.status === 'requested' && (
+                                            <button className="mh-print-btn" onClick={() => handleStatusChange(t.test_id, 'in_progress')}>
+                                            <FlaskConical size={13} /> Start Processing
+                                            </button>
+                                        )}
+                                        {t.status === 'in_progress' && (
+                                            <button className="mh-print-btn" onClick={() => handleStatusChange(t.test_id, 'completed')}>
+                                            <CheckCircle2 size={13} /> Mark Completed
+                                            </button>
+                                        )}
+                                        </div>
+                                    </div>
+                                    </div>
+                                </div>
+                                )}
+                            </div>
+                            </div>
+                        </div>
+                        );
+                    })}
 </div>
                     )
                 }

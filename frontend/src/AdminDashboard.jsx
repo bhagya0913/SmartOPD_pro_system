@@ -408,7 +408,6 @@ function StaffSection() {
                 </div>
             </div>
             
-
             <div className="adm-card">
                 {loading ? <div className="adm-loading"><div className="adm-spinner"/></div> : (
                     <table className="adm-table">
