@@ -70,6 +70,9 @@ SmartOPD is a comprehensive web-based solution designed to digitize and streamli
 ## 📸 Screenshots
 
 ### Patient Dashboard
+![Home Page](screenshots/Home%20Page.png)
+
+### Patient Dashboard
 ![Patient Dashboard](screenshots/Patient%20Dashboard.png)
 
 ### Doctor Dashboard
@@ -88,7 +91,6 @@ SmartOPD is a comprehensive web-based solution designed to digitize and streamli
 ![Receptionist Dashboard](screenshots/Receptionist%20Dashboard.png)
 
 ### More Screenshots
-- [Home Page](screenshots/Home%20Page.png)
 - [Login Screen](screenshots/Login%20Screen.png)
 - [Register Screen](screenshots/Register%20Screen.png)
 - [Patient Dashboard - Book Appointments](screenshots/Patient%20Dashboard_Book%20Bppointments.png)
